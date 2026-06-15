@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "flarepilled",
+  "description": "Don't build what Cloudflare already runs. A code-review lens for the Cloudflare platform.",
+  "owner": {
+    "name": "grey"
+  },
+  "plugins": [
+    {
+      "name": "flarepilled",
+      "description": "Scans code for hand-rolled infra Cloudflare offers as a managed primitive, and surfaces honest, confidence-rated swaps grounded in live Cloudflare docs — 112 products across 12 categories, incl. the Zero Trust/SASE stack and the Rules family.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

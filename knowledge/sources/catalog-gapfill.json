@@ -1,0 +1,1020 @@
+[
+  {
+    "slug": "cloudflare-access",
+    "name": "Cloudflare Access",
+    "category": "Zero Trust / SASE",
+    "tier": 1,
+    "oneLiner": "Identity-aware proxy that gates any web app, SaaS tenant, or SSH/RDP target behind per-request Zero Trust policy — no VPN, no public exposure.",
+    "replaces": "Stop running a VPN concentrator, bastion/jump hosts, or a self-hosted oauth2-proxy/Pomerium/Teleport in front of internal apps.",
+    "capabilities": [
+      "Application types: self-hosted web apps (incl. Workers), SaaS apps via SAML or OIDC federation, private/non-HTTP network destinations, and infrastructure apps (SSH/RDP) with protocol-aware authorization",
+      "Infrastructure access issues short-lived certificates and controls ports/usernames/commands, eliminating long-lived SSH keys",
+      "Up to 50 identity providers per account; combine multiple IdPs and require specific ones per app",
+      "Reusable Access policies (allow/block/bypass) evaluating identity, group, device posture, country, IP, mTLS cert, and more",
+      "Service tokens (CF-Access-Client-Id / CF-Access-Client-Secret headers) and mTLS client certs for machine-to-machine / automation auth",
+      "Device posture signals (WARP client, OS version, disk encryption, third-party EDR) as policy conditions",
+      "App Launcher portal plus Bookmarks for visibility-only links; event subscriptions for audit logging",
+      "Authenticate coding agents / AI controls as first-class policy targets"
+    ],
+    "apiSurface": "Zero Trust dashboard (Access > Applications + reusable Policies UI); full Cloudflare API under /accounts/{id}/access/apps, /access/policies, /access/service_tokens, /access/identity_providers; Terraform cloudflare_zero_trust_access_application / _access_policy / _access_service_token resources. Apps are typically fronted by a Cloudflare Tunnel (cloudflared) rather than a binding/wrangler.",
+    "detectionSignals": [
+      "oauth2-proxy / Pomerium / Authelia / Teleport in docker-compose or k8s manifests sitting in front of an internal app",
+      "nginx auth_request directives, basic-auth .htpasswd files, or hand-rolled JWT-cookie middleware guarding a dashboard",
+      "OpenVPN/WireGuard/IPsec configs (client.ovpn, wg0.conf) used purely to reach internal web apps",
+      "A bastion/jump host (jumpbox, ProxyJump in ~/.ssh/config) and long-lived authorized_keys distribution",
+      "App env vars like OIDC_CLIENT_ID/SAML_METADATA_URL wired into per-app SSO plumbing repeated across services"
+    ],
+    "ideaPrompts": [
+      "Replace the oauth2-proxy + nginx auth_request layer guarding our Grafana with a Cloudflare Access self-hosted app behind a Tunnel.",
+      "Issue short-lived SSH access to prod via an Access infrastructure application instead of distributing authorized_keys.",
+      "Gate our internal admin Worker with an Access policy requiring Okta group membership plus a WARP-enrolled device."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/cloudflare-one/access-controls/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/access-controls/applications/choose-application-type/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/account-limits/index.md"
+    ],
+    "confidence": "high",
+    "pricing": "Free Zero Trust plan covers up to 50 users; beyond that Pay-as-you-go/Contract per-seat. SaaS + self-hosted app gating included on Free tier (verify — drifts).",
+    "limits": [
+      "500 applications, 500 reusable policies, 50 identity providers per account",
+      "1,000 rules per application; 1,000 email addresses and 1,000 IP addresses per rule",
+      "Self-hosted web app gating needs the origin reachable by Cloudflare (Tunnel or proxied DNS); not a fit for thick-client/native protocols beyond the supported SSH/RDP infra paths",
+      "Browser-rendered SSH/RDP/VNC sessions require Browser Isolation seats"
+    ],
+    "pairsWith": [
+      "cloudflare-tunnel",
+      "cloudflare-gateway",
+      "cloudflare-browser-isolation",
+      "warp-device-posture"
+    ],
+    "notes": "Lock-in is moderate: policies and IdP wiring are CF-specific, but apps stay on your origin so exit is mostly reconfiguration. Not an IdP itself — it federates your existing Okta/Entra/Google. For pure SaaS SSO it is an SP/federation layer, not a replacement for the IdP. Infra (SSH/RDP) access is the strongest VPN-killer; deep non-HTTP L4 reachability is Gateway/WARP territory, not Access."
+  },
+  {
+    "slug": "cloudflare-gateway",
+    "name": "Cloudflare Gateway",
+    "category": "Zero Trust / SASE",
+    "tier": 1,
+    "oneLiner": "Cloud Secure Web Gateway that filters DNS, L4 network, and L7 HTTP egress traffic with TLS decryption, content/security categories, and inline DLP — no on-prem proxy box.",
+    "replaces": "Stop renting Cisco Umbrella / Zscaler Internet Access / Netskope SWG or self-hosting Squid + pi-hole/Pi-hole + a perimeter firewall for outbound filtering.",
+    "capabilities": [
+      "Three policy layers: DNS (block before connection), Network/L4 (TCP/UDP/GRE by IP, port, protocol, SNI), and HTTP/L7 (URL, headers, files) with HTTPS decryption via installed root cert",
+      "DNS actions: Allow, Block (custom block page), Override, Safe Search (Google/Bing/Yandex/YouTube/DuckDuckGo), YouTube Restricted Mode",
+      "HTTP actions: Allow, Block, Redirect, Isolate (hand off to Browser Isolation), Do Not Inspect, Do Not Scan, Quarantine (sandbox detonation)",
+      "Content categories + Security Threats categories (malware, phishing, C2, compromised domain, potentially-unwanted software) for category-based blocking",
+      "Built-in antivirus scanning and file sandboxing; blocks password-protected/unscannable Office/PDF/ZIP files",
+      "Inline DLP via DLP Profile selector on HTTP policies; Application controls and security-risk selectors for shadow-IT and tenant control",
+      "Identity-aware policies (user email, group, SAML attributes) and device-posture selectors when traffic comes from the WARP client",
+      "Dedicated egress IPs and custom resolver policies for source-IP allowlisting at SaaS vendors"
+    ],
+    "apiSurface": "Zero Trust dashboard Gateway rule builder (Selector / Operator / Value with And/Or); Gateway API /accounts/{id}/gateway/rules + /lists + /locations using Wirefilter traffic expressions (e.g. http.request.uri matches \"/gaming\"); Terraform cloudflare_zero_trust_gateway_policy (provider v5 recommended to avoid precedence conflicts). Onboarding via WARP client, DNS locations (agentless), PAC/proxy endpoints, or IPsec/GRE tunnels (Magic WAN).",
+    "detectionSignals": [
+      "squid.conf / Privoxy / e2guardian configs, or a Squid container doing outbound URL filtering",
+      "pi-hole / Pi-hole / AdGuard Home / Unbound blocklists used as the corporate DNS sink",
+      "Umbrella/Zscaler/Netskope PAC files, ZIA tunnels, or umbrella_roaming_client / Zscaler agent in MDM profiles",
+      "Hand-maintained /etc/hosts or RPZ zone files as a domain blocklist; iptables/nftables OUTPUT rules enumerating blocked IPs/ports for egress control",
+      "A proxy.pac referencing an internal gateway host, or HTTP_PROXY/HTTPS_PROXY env vars pointed at an on-prem filtering proxy"
+    ],
+    "ideaPrompts": [
+      "Migrate our Squid egress allowlist and pi-hole blocklists into Cloudflare Gateway DNS + HTTP policies routed through WARP.",
+      "Add a Gateway HTTP policy that quarantines executable downloads and blocks password-protected ZIPs for the finance group.",
+      "Replace per-vendor IP allowlisting hacks with a Gateway dedicated egress IP so SaaS providers see one stable source IP."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/cloudflare-one/traffic-policies/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/traffic-policies/http-policies/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/traffic-policies/dns-policies/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/account-limits/index.md"
+    ],
+    "confidence": "high",
+    "pricing": "DNS filtering available on Free Zero Trust plan; HTTP/Network filtering, AV, and inline DLP scale with Pay-as-you-go/Enterprise seats. Some advanced selectors (DLP, sandbox) are Enterprise/add-on (verify — drifts).",
+    "limits": [
+      "500 DNS + 500 HTTP + 500 Network policies; 250 DNS locations; 100 lists; list entries 1,000 (Standard) / 5,000 (Enterprise) per account",
+      "HTTP inspection requires distributing the Cloudflare root CA to devices; breaks on cert-pinned apps unless added to Do Not Inspect",
+      "Full L4/HTTP enforcement on roaming devices requires the WARP client; agentless DNS-location mode only does DNS-layer filtering",
+      "TLS decryption has privacy/compliance implications and per-app exceptions to manage"
+    ],
+    "pairsWith": [
+      "cloudflare-warp",
+      "cloudflare-dlp",
+      "cloudflare-browser-isolation",
+      "cloudflare-access",
+      "magic-wan"
+    ],
+    "notes": "Lock-in is low-to-moderate: rules are CF-specific Wirefilter but the data plane is just your egress path. The big operational cost is cert distribution + TLS-decryption exceptions. Network/L4 policies need WARP or a tunnel; do not assume HTTP-policy parity in pure agentless DNS mode. Inbound app protection is WAF/Access, not Gateway — Gateway is egress/forward-proxy only."
+  },
+  {
+    "slug": "cloudflare-browser-isolation",
+    "name": "Cloudflare Browser Isolation",
+    "category": "Zero Trust / SASE",
+    "tier": 2,
+    "oneLiner": "Remote Browser Isolation that runs risky web sessions in Cloudflare's network and streams a safe vector representation to the user, with copy/paste/download/upload/keyboard controls.",
+    "replaces": "Stop running Menlo / Ericom / Symantec Web Isolation, or maintaining disposable-VDI / Kasm browser fleets, for risky-site and untrusted-link browsing.",
+    "capabilities": [
+      "Executes page JavaScript/plugins in a remote browser in Cloudflare's edge; user device renders a streamed representation (Network Vector Rendering), protecting against drive-by/zero-day web threats",
+      "Triggered by Gateway HTTP policy Isolate action, or by category/risk (e.g. isolate uncategorized or security-risk domains)",
+      "Clientless / link-based isolation: wrap any URL via https://<team-name>.cloudflareaccess.com/browser/<URL> — no device client needed, ideal for third-party/unmanaged users",
+      "Data-protection controls in the Isolate policy: Copy and Paste (allow / only-within-isolated / disallow), File downloads (allow / disallow / view-in-remote-browser), File uploads (allow/disallow), Keyboard (allow/disallow), Printing (allow/disallow)",
+      "Isolate Access applications so internal apps render in a remote browser for high-risk or BYOD users",
+      "Connection modes: Traffic+DNS (WARP), Access, Gateway proxy endpoint, Cloudflare WAN (GRE/IPsec), and Clientless prefixed-URL",
+      "Sessions auto-delete when the browser closes; integrates with Email Security to open suspicious links in isolation"
+    ],
+    "apiSurface": "Configured as optional settings inside the Gateway HTTP policy builder when the Isolate action is selected (no separate isolation API object for the controls); clientless mode is enabled in Zero Trust settings ('Allow users to open a remote browser without the device client'). Same Gateway rules API/Terraform surface as Gateway policies. No wrangler/binding.",
+    "detectionSignals": [
+      "Kasm Workspaces / Apache Guacamole / Selenium-grid 'disposable browser' deployments for safe browsing",
+      "A fleet of throwaway VMs or containers spun up per-session just to open untrusted links",
+      "Menlo/Ericom/Symantec Web Isolation agents or PAC entries in endpoint config",
+      "Internal 'open this link safely' tooling that screenshots or proxies URLs through a sandbox VM",
+      "Helpdesk runbooks instructing analysts to open suspicious URLs only inside an isolated VM"
+    ],
+    "ideaPrompts": [
+      "Add a Gateway Isolate policy that opens all uncategorized and security-risk domains in a remote browser with downloads disabled.",
+      "Give external contractors clientless browser-isolation links to our internal app instead of provisioning Kasm sessions.",
+      "Retire our per-session disposable-browser VMs by isolating high-risk categories at the Gateway HTTP layer."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/cloudflare-one/remote-browser-isolation/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/remote-browser-isolation/setup/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/remote-browser-isolation/isolation-policies/index.md"
+    ],
+    "confidence": "high",
+    "pricing": "Add-on to Zero Trust Pay-as-you-go and Enterprise plans; consumes per-seat Browser Isolation (RBI) licenses (verify — drifts).",
+    "limits": [
+      "Requires RBI seats assigned; inline (non-clientless) isolation depends on Gateway/WARP being deployed",
+      "Data-protection controls (copy/paste/download/upload/keyboard/print) live only within the Isolate HTTP policy, so they require HTTP inspection + the root CA",
+      "Latency/UX overhead versus local browsing; some heavy web apps degrade",
+      "Clientless prefixed-URL mode is per-link/hostname, not a transparent whole-session proxy"
+    ],
+    "pairsWith": [
+      "cloudflare-gateway",
+      "cloudflare-access",
+      "cloudflare-email-security",
+      "cloudflare-dlp"
+    ],
+    "notes": "Almost never deployed standalone — it is an action surfaced by Gateway/Access/Email Security. If a codebase has Gateway but no isolation, untrusted-link handling is the gap to flag. Not a fit when sub-50ms interactivity or full native-browser fidelity is required. Lock-in is low since it is policy-driven, but the data-protection controls assume CF's TLS-decrypting proxy is already in path."
+  },
+  {
+    "slug": "cloudflare-casb",
+    "name": "Cloudflare CASB",
+    "category": "Zero Trust / SASE",
+    "tier": 2,
+    "oneLiner": "API-based (out-of-band) Cloud Access Security Broker that connects to SaaS/cloud tenants and scans for misconfigurations, risky sharing, shadow IT, and data-exposure findings after login.",
+    "replaces": "Stop paying for Netskope SaaS Security Posture / Microsoft Defender for Cloud Apps just to audit SaaS misconfigurations and oversharing.",
+    "capabilities": [
+      "Connects to SaaS and cloud APIs read-only (least-privilege OAuth) to find post-authentication security issues — no inline proxy required",
+      "Detects misconfigurations (overly permissive sharing), unauthorized user activity, shadow IT, and other data-security issues",
+      "Surfaces discrete 'findings' per integration that can be reviewed, triaged, and managed in the dashboard",
+      "Combines with DLP to scan files inside connected SaaS apps for sensitive data (CASB+DLP)",
+      "Export of posture finding instances via webhooks for SIEM/ticketing workflows",
+      "Step-by-step in-dashboard OAuth integration setup per provider"
+    ],
+    "apiSurface": "Zero Trust dashboard (CASB / Cloud & SaaS integrations) with guided OAuth connection per SaaS app; findings managed in the dashboard and exportable via webhooks. Configuration is integration-driven (connect tenant), not code/binding/wrangler. Findings are also reachable through the Cloudflare API CASB endpoints.",
+    "detectionSignals": [
+      "Home-grown scripts hitting Google Workspace Admin SDK / Microsoft Graph / Slack / GitHub org APIs to audit sharing and permissions",
+      "Scheduled jobs pulling Drive/SharePoint public-link reports or 'who has access' exports into a spreadsheet",
+      "A separate SSPM/CASB vendor agent or API connector (Netskope, Defender for Cloud Apps) in the SaaS admin console",
+      "Manual quarterly access-review runbooks for SaaS tenants instead of continuous scanning",
+      "Custom GitHub Actions / cron checking for public repos, exposed secrets, or org-member misconfig"
+    ],
+    "ideaPrompts": [
+      "Connect Google Workspace and GitHub to Cloudflare CASB and replace our custom oversharing-audit scripts with managed findings.",
+      "Use CASB+DLP to flag files shared publicly in our SaaS tenants that contain credit-card or SSN data.",
+      "Wire CASB finding webhooks into our SIEM so misconfig detections open tickets automatically."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/cloudflare-one/cloud-and-saas-findings/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/cloud-and-saas-findings/casb-dlp/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/account-limits/index.md"
+    ],
+    "confidence": "high",
+    "pricing": "Free users can configure up to two CASB integrations; you must upgrade to an Enterprise plan to view the details of a finding instance (verify — drifts).",
+    "limits": [
+      "Free tier capped at 2 integrations and cannot view finding details (Enterprise required)",
+      "Out-of-band only — it audits/posture-checks, it does not inline-block SaaS sessions (that is Gateway's job)",
+      "Coverage is limited to supported SaaS/cloud integrations; verify your specific apps are supported in-dashboard before assuming parity",
+      "Account-limits page does not publish a CASB integration ceiling for paid tiers"
+    ],
+    "pairsWith": [
+      "cloudflare-dlp",
+      "cloudflare-gateway",
+      "cloudflare-access"
+    ],
+    "notes": "Honest caveat: the docs index page does not enumerate the exact supported-integration list (Google Workspace, Microsoft 365, Salesforce, GitHub, Slack, Box, Dropbox, AWS are commonly cited but were not verbatim-confirmed on the fetched pages) — confirm the live integrations catalog in-dashboard. This is posture/SSPM, not inline CASB; for inline tenant control and DLP-on-the-wire use Gateway. Strongest value is continuous misconfig detection replacing manual access reviews."
+  },
+  {
+    "slug": "cloudflare-dlp",
+    "name": "Cloudflare DLP",
+    "category": "Zero Trust / SASE",
+    "tier": 2,
+    "oneLiner": "Data Loss Prevention that detects sensitive data (PII, financial, credentials) in proxied HTTP traffic, SaaS files, and AI prompts, enforced inline through Gateway policies.",
+    "replaces": "Stop licensing Symantec / Forcepoint / Microsoft Purview DLP to catch sensitive data leaving over the web.",
+    "capabilities": [
+      "Scans HTTP body content (uploads/downloads, messages, forms), SaaS application files (via CASB), and AI prompts/responses (via AI Gateway) for sensitive data",
+      "Predefined profiles for financial information and SSN/tax-identifier numbers, plus broader predefined detection entries",
+      "Custom detection: profiles, regex custom entries, and exact-data-match / dataset uploads (datasets up to ~1,000,000 cells/account)",
+      "Optical Character Recognition (OCR) to detect sensitive data inside images",
+      "Supports text, CSV, Microsoft Office (2007+), PDF, and ZIP file formats",
+      "Payload logging stores an encrypted copy of matched content for review",
+      "Enforced inline by selecting a DLP Profile in a Gateway HTTP policy (block/allow/log on match)"
+    ],
+    "apiSurface": "Zero Trust dashboard DLP Profiles + detection entries; applied via the DLP Profile selector inside Gateway HTTP policies. Cloudflare API /accounts/{id}/dlp/profiles + /dlp/datasets; Terraform cloudflare_zero_trust_dlp_profile. Detection runs in the Gateway data path — no app-side binding/wrangler.",
+    "detectionSignals": [
+      "Regex sweeps for SSNs/credit cards (e.g. \\d{3}-\\d{2}-\\d{4}, Luhn checks) baked into app middleware or a logging pipeline",
+      "git-secrets / truffleHog / detect-secrets / gitleaks wired in to catch credentials in outbound content",
+      "A commercial DLP agent (Symantec/Forcepoint/Purview) endpoint or ICAP server in the egress path",
+      "Custom 'redact PII before it leaves' code in proxies or API gateways, or homemade EDM fingerprint matching",
+      "Manual processes reviewing uploads for sensitive data, or ad-hoc OCR scripts on screenshots"
+    ],
+    "ideaPrompts": [
+      "Add a Gateway HTTP policy with a DLP profile that blocks uploads containing credit-card numbers to non-sanctioned apps.",
+      "Replace our regex-based PII scrubber with a Cloudflare DLP custom profile plus exact-data-match dataset.",
+      "Inspect AI prompts through AI Gateway with a DLP profile so source code and secrets can't be pasted into external LLMs."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/cloudflare-one/data-loss-prevention/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/data-loss-prevention/dlp-profiles/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/account-limits/index.md"
+    ],
+    "confidence": "high",
+    "pricing": "Available as an add-on to Zero Trust Enterprise plans; Free/Pay-as-you-go users get limited predefined profiles and payload-logging features (verify — drifts).",
+    "limits": [
+      "25 custom entries; 1,000 custom wordlist keywords per account; ~1,000,000 dataset cells per account",
+      "Inline web DLP requires Gateway HTTP inspection (TLS decryption + root CA) to see content",
+      "Full custom/EDM detection and rich profiles are Enterprise-gated",
+      "Header content is excluded from scanning; only HTTP body is inspected on the wire"
+    ],
+    "pairsWith": [
+      "cloudflare-gateway",
+      "cloudflare-casb",
+      "cloudflare-ai-gateway",
+      "cloudflare-email-security"
+    ],
+    "notes": "DLP is a detection engine, not a standalone product — it only acts where it is wired in: Gateway (web), CASB (SaaS at rest), AI Gateway (prompts), Email Security (outbound). Flag a codebase that has Gateway TLS inspection but no DLP profiles. Lock-in is low (profiles are portable concepts) but EDM datasets and payload logging create CF-side state. Not endpoint DLP — it does not watch local USB/clipboard off-network."
+  },
+  {
+    "slug": "cloudflare-email-security",
+    "name": "Cloudflare Email Security",
+    "category": "Zero Trust / SASE",
+    "tier": 1,
+    "oneLiner": "Cloud email security (formerly Area 1) that analyzes every inbound message with AI + threat intel to stop phishing, BEC, vendor fraud, malware, and spam — deployable inline or via API.",
+    "replaces": "Stop paying for Proofpoint / Mimecast / Abnormal / Microsoft Defender for O365 as your inbound anti-phishing and BEC layer.",
+    "capabilities": [
+      "Analyzes every incoming email for phishing, Business Email Compromise (executive/authority impersonation), vendor email fraud, malware, and spam using AI, threat intelligence, and security rules",
+      "API deployment (post-delivery) with Microsoft 365 (Microsoft Graph) and Google Workspace — no MX change, auto-moves malicious mail out of every inbox when disposition upgrades",
+      "Inline / MX deployment (pre-delivery) for highest protection: blocks before inbox, supports link rewrite, text/banner add-ons, and move actions at delivery",
+      "BCC / Journaling deployment (Google BCC rules, Microsoft Exchange Journal Rules) for post-delivery analysis",
+      "Email Link Isolation: rewrite suspicious links (or all links of a chosen disposition) to open in a clientless remote browser via Browser Isolation",
+      "Investigation tooling: search/reclassify messages, open links safely in Browser Isolation or Security Center, manage allow policies, blocked senders, trusted domains, and an impersonation registry",
+      "Phishing submission and retroactive remediation (auto-move/clawback) of delivered threats"
+    ],
+    "apiSurface": "Cloudflare One dashboard (Email Security: Investigation, Settings > Detection/Link Actions, allow/block policies, impersonation registry). Deployment via Microsoft Graph / Google Workspace API authorization, MX-record edits / mail connector (inline), or BCC/Journal rules. Cloudflare Email Security API for submissions and configuration. Distinct from outbound Email Service (sending) and from DMARC Management.",
+    "detectionSignals": [
+      "Existing Proofpoint/Mimecast/Abnormal connectors, or Microsoft Defender for O365 Safe Links/Safe Attachments policies",
+      "Hand-built mail rules that quarantine on SPF/DKIM/DMARC failure as the primary anti-phishing control",
+      "Custom journaling/BCC pipelines feeding a homemade phishing-analysis service or a SOAR playbook",
+      "Transport rules doing display-name/impersonation string matching for exec names",
+      "A 'report phish' add-in feeding a manual triage mailbox instead of automated disposition + clawback"
+    ],
+    "ideaPrompts": [
+      "Connect Microsoft 365 to Cloudflare Email Security via API so malicious mail is auto-moved post-delivery without changing MX.",
+      "Deploy inline (MX) Email Security and rewrite suspicious links to open in Browser Isolation instead of relying on Defender Safe Links.",
+      "Replace our journaling-to-custom-analyzer pipeline with Email Security BCC/Journaling deployment and the impersonation registry."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/cloudflare-one/email-security/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/email-security/setup/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/email-security/settings/detection-settings/configure-link-actions/",
+      "https://developers.cloudflare.com/changelog/post/2025-08-07-expanded-link-isolation/"
+    ],
+    "confidence": "high",
+    "pricing": "Sold in packages — Advantage, Enterprise, and Enterprise + PhishGuard; feature availability (e.g. expanded link isolation = Enterprise/PhishGuard) varies by package (verify — drifts).",
+    "limits": [
+      "Link rewrite / text add-ons / pre-delivery blocking require Inline (MX) deployment; API and BCC/Journaling modes are post-delivery and remediate mainly via move/delete",
+      "Email Link Isolation requires Browser Isolation (RBI) seats and the clientless-browser setting enabled",
+      "API auto-move needs Graph/Google read-write authorization; some actions only fire if an integration is associated",
+      "Inbound only — does not cover outbound transactional sending (Email Service) or DMARC reporting/enforcement (DMARC Management)"
+    ],
+    "pairsWith": [
+      "cloudflare-browser-isolation",
+      "cloudflare-dlp",
+      "cloudflare-area1-security-center",
+      "cloudflare-dmarc-management"
+    ],
+    "notes": "Explicitly the INBOUND product — do not conflate with Cloudflare Email Service (outbound/transactional) or DMARC Management (auth reporting). Lock-in is low in API mode (revoke OAuth) but inline/MX mode reroutes your mail flow, which is a heavier migration. Strongest pitch is replacing the expensive SEG (Proofpoint/Mimecast) — API mode lets it run alongside Defender as a second layer with near-zero deployment risk."
+  },
+  {
+    "slug": "cloudflare-dex",
+    "name": "Digital Experience Monitoring (DEX)",
+    "category": "Zero Trust / SASE",
+    "tier": 2,
+    "oneLiner": "Endpoint + synthetic + network telemetry collected from the WARP/Cloudflare One client — device health, fleet status, HTTP application tests, traceroutes, and remote packet captures.",
+    "replaces": "Stop deploying Catchpoint / ThousandEyes endpoint agents or Nexthink just to see why remote users' apps and networks feel slow.",
+    "capabilities": [
+      "Device monitoring from the client: CPU usage, memory utilization, disk I/O, battery percentage/cycles, network I/O, and unique Wi-Fi networks (SSID) over time",
+      "Fleet status: connectivity by Cloudflare data center, client connection state (Connected/Disconnected/Paused/Connecting), client mode, OS distribution, and client-version tracking with historical 'over time' views",
+      "Synthetic HTTP tests: target URL + method + interval + expected codes, returning DNS time, connection time, Time to First Byte, server response time, and availability",
+      "Traceroute tests: network path/hops, packet loss, latency, and round-trip time between device and endpoint",
+      "Remote diagnostics: on-demand speed tests and remote packet captures (pcap) from a specific device",
+      "DEX rules to scope which users/groups run which tests",
+      "Logpush export of DEX application-test data to R2 / third-party storage / SIEM for retention beyond the standard ~7-day window"
+    ],
+    "apiSurface": "Zero Trust dashboard (DEX: Monitoring, Tests, Diagnostics, Remote Captures) where HTTP/traceroute tests are created and fleet/device metrics are viewed; Cloudflare API for DEX tests and fleet-status data; Logpush job for DEX test data export. Telemetry source is the installed WARP/Cloudflare One client — no app binding/wrangler.",
+    "detectionSignals": [
+      "ThousandEyes Endpoint Agent / Catchpoint / Nexthink collectors pushed via MDM alongside the VPN client",
+      "Home-grown cron scripts running curl-timing / mtr / traceroute on laptops and shipping results to a dashboard",
+      "Helpdesk asking users to run speedtest-cli or manually capture a pcap to debug 'app is slow' tickets",
+      "Custom RMM checks polling CPU/RAM/battery/Wi-Fi and forwarding to a TSDB just for endpoint health",
+      "Synthetic uptime checks for internal apps run only from cloud probes, with no visibility from the actual user's device/network path"
+    ],
+    "ideaPrompts": [
+      "Create DEX HTTP and traceroute tests for our internal app so we can see DNS/TTFB and packet loss from real remote devices instead of a ThousandEyes agent.",
+      "Use DEX fleet status to find which Cloudflare data centers and client versions correlate with our slow-app tickets.",
+      "Trigger a remote packet capture from a complaining user's device and Logpush DEX results to our SIEM for retention."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/cloudflare-one/insights/dex/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/insights/dex/monitoring/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/insights/dex/tests/index.md",
+      "https://developers.cloudflare.com/cloudflare-one/account-limits/index.md"
+    ],
+    "confidence": "high",
+    "pricing": "Available across Cloudflare Zero Trust / SASE plans; test and capture ceilings scale by tier (Free / Standard / Enterprise) (verify — drifts).",
+    "limits": [
+      "DEX Tests capped at 10 (Free) / 30 (Standard) / 50 (Enterprise) per account",
+      "Remote captures/day: 100 (Free) / 200 (Standard) / 800 (Enterprise)",
+      "Requires the WARP/Cloudflare One client installed and enrolled — no agent, no endpoint telemetry",
+      "Default ~7-day data retention unless exported via Logpush; test types are HTTP + traceroute (not arbitrary protocol synthetics)"
+    ],
+    "pairsWith": [
+      "cloudflare-warp",
+      "cloudflare-gateway",
+      "cloudflare-access",
+      "logpush"
+    ],
+    "notes": "Only as good as WARP coverage — it observes the Cloudflare-One client's view, so unmanaged/agentless devices are invisible. Synthetic tests are HTTP + traceroute, not the full ThousandEyes path-viz/BGP suite, so set expectations for network teams. Lock-in is low (telemetry/exports), value is highest where WARP is already the access path; pairs naturally with Gateway/Access to explain 'is it the app, the network, or the device?'"
+  },
+  {
+    "slug": "cloudflare-transform-rules",
+    "name": "Transform Rules",
+    "category": "Edge Rules / HTTP rewriting",
+    "tier": 2,
+    "oneLiner": "Edge-side rewriting of URL paths, query strings, and request/response headers via filter-expression rules, no origin code.",
+    "replaces": "Stop hand-rolling nginx rewrite/headers-more/sub_filter, Apache mod_rewrite, or Lambda@Edge/CloudFront-Functions header logic just to munge paths and headers in front of your app.",
+    "capabilities": [
+      "URL Rewrite Rules: rewrite the URL path and/or query string of an incoming request (static or dynamic) before it hits origin",
+      "Request Header Transform Rules: set or remove HTTP request headers sent to origin (static value, dynamic expression, or from another header/field)",
+      "Response Header Transform Rules: set or remove HTTP response headers returned to the visitor",
+      "Match traffic with the Rules language / Wirefilter expressions (hostname, path, method, headers, cookies, country, bot score, etc.)",
+      "Dynamic values built from request fields via expression functions (concat, lower, regex_replace on Business+)",
+      "Dashboard templates for common tasks; rules evaluated in order, later rules can overwrite earlier changes",
+      "Regex-based matching/rewriting available on Business and Enterprise plans",
+      "Managed Transforms run before custom Transform Rules and do not count against the quota"
+    ],
+    "apiSurface": "Dashboard: Rules > Overview (Transform Rules UI with templates). API: Rulesets API, phases http_request_transform (URL rewrite), http_request_late_transform (request headers), http_response_headers_transform (response headers), action=rewrite. Terraform: cloudflare_ruleset with the matching phase. No Wrangler/binding (these are declarative rules, not code).",
+    "detectionSignals": [
+      "nginx.conf with `rewrite ... permanent/last`, `sub_filter`, `more_set_headers`/`headers-more` module, `proxy_set_header` purely to reshape paths/headers",
+      "Apache `RewriteRule`/`Header set`/`Header unset` in .htaccess used only for edge-style path/header rewriting",
+      "Lambda@Edge or CloudFront Functions whose entire body mutates request.uri or sets/removes headers",
+      "A tiny Express/Fastify middleware or reverse-proxy service that only rewrites paths or injects/strips headers",
+      "Adding headers like X-Forwarded-* , security headers, or stripping Server/X-Powered-By in app code"
+    ],
+    "ideaPrompts": [
+      "Find nginx rewrite/headers-more directives or Lambda@Edge functions that only reshape paths/headers and could move to Transform Rules.",
+      "Spot app middleware whose sole job is injecting or stripping HTTP headers that Cloudflare could set at the edge.",
+      "Detect URL-path rewriting (e.g. /old/* -> /new/*) hard-coded in the origin that belongs in an edge URL Rewrite Rule."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/transform/",
+      "https://developers.cloudflare.com/rules/transform/url-rewrite/",
+      "https://developers.cloudflare.com/rules/transform/request-header-modification/",
+      "https://developers.cloudflare.com/rules/transform/response-header-modification/"
+    ],
+    "confidence": "high",
+    "pricing": "All plans. Active rules per zone: Free 10, Pro 25, Business 50, Enterprise 300. Regex matching/rewriting: Business and Enterprise only. (verify — drifts; limits were raised Feb 2025 and roll out gradually.)",
+    "limits": [
+      "Free/Pro cannot use regular expressions in matching or rewriting (Business+ only)",
+      "URL Rewrite only changes path/query — it does not change the origin host (use Origin Rules for that) and is not a redirect (use Single Redirects)",
+      "Rule-count caps per plan (10/25/50/300); rules run in sequence and can clobber each other",
+      "Requires DNS records proxied (orange-cloud) through Cloudflare"
+    ],
+    "pairsWith": [
+      "Single Redirects",
+      "Origin Rules",
+      "Configuration Rules",
+      "Managed Transforms",
+      "Cloudflare Snippets"
+    ],
+    "notes": "Declarative only — for branching logic, loops, JWT verification, or anything beyond field-to-field rewriting, escalate to Snippets or Workers. Not a redirect engine (URL Rewrite is transparent to the browser). Header mutation is powerful but order-dependent; document rule order. Lock-in is low: expressions are portable concepts but the rule definitions are Cloudflare-specific."
+  },
+  {
+    "slug": "cloudflare-single-redirects",
+    "name": "Single Redirects",
+    "category": "Edge Rules / URL forwarding",
+    "tier": 2,
+    "oneLiner": "Per-zone static or dynamic URL redirects defined as edge rules with a wildcard interface, no return-301 maps or app routes.",
+    "replaces": "Stop maintaining nginx `return 301`/`rewrite ... redirect` blocks, Apache Redirect/RedirectMatch, framework redirect middleware, or a Netlify-style _redirects file for one-off and pattern redirects.",
+    "capabilities": [
+      "Static redirects to a fixed target URL",
+      "Dynamic redirects that build the target from parts of the original request (path, query, country, etc.)",
+      "Wildcard-based pattern interface (match `https://example.com/old/*`, reuse captured segments in target) without writing regex",
+      "Optional string-replacement and regular expressions for advanced rewriting (plan-dependent)",
+      "Choose status code (301, 302, 307, 308) and preserve query string / path suffix",
+      "Match using the full Rules language for conditional redirects (only redirect for certain countries, devices, paths)",
+      "Built on the Ruleset Engine (http_request_dynamic_redirect phase) so it is versioned and API/Terraform-manageable"
+    ],
+    "apiSurface": "Dashboard: Rules > Redirect Rules (single). API: Rulesets API, phase http_request_dynamic_redirect, action=redirect, action_parameters.from_value{target_url(value or expression), status_code, preserve_query_string}. Terraform: cloudflare_ruleset (use `ref` to avoid rule recreation). Min token perm: Zone > Single Redirect > Edit (a.k.a. Dynamic URL Redirects Write). No Wrangler/binding.",
+    "detectionSignals": [
+      "nginx `return 301 https://...`, `rewrite ^/old /new permanent`, or a `map` block driving redirects",
+      "Apache `Redirect 301` / `RedirectMatch` in .htaccess or vhost",
+      "A Netlify/Cloudflare Pages `_redirects` file or `next.config.js` redirects[] / `vercel.json` redirects used for a handful of rules",
+      "Express/Koa/Django/Rails middleware doing res.redirect()/HttpResponseRedirect for marketing or legacy URLs",
+      "A small 'redirect service' or edge function whose only job is issuing 301/302s"
+    ],
+    "ideaPrompts": [
+      "Find nginx `return 301`/`map`-based redirects or _redirects/next.config redirects[] that are simple pattern matches and belong in Single Redirects.",
+      "Detect app-level res.redirect() handlers for legacy/marketing URLs that should be edge redirects.",
+      "Spot redirect logic conditional on country/device/path that could be a single dynamic-redirect rule."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/url-forwarding/single-redirects/",
+      "https://developers.cloudflare.com/rules/url-forwarding/single-redirects/create-api/",
+      "https://developers.cloudflare.com/changelog/post/2025-02-12-rules-upgraded-limits/"
+    ],
+    "confidence": "high",
+    "pricing": "All plans. Rule count shares the Rules family caps (Enterprise raised to 300 in Feb 2025; lower tiers in the 10/25/50 range). (verify — drifts; check the Single Redirects availability table.)",
+    "limits": [
+      "Best for small-to-moderate numbers of redirects defined as rules; for thousands of one-to-one mappings use Bulk Redirects instead",
+      "Advanced regex/string-replacement features and higher rule counts depend on plan tier",
+      "Requires proxied (orange-cloud) DNS records",
+      "Each rule is an expression+target; very large rule sets get unwieldy vs a Bulk Redirect list"
+    ],
+    "pairsWith": [
+      "Bulk Redirects",
+      "Transform Rules",
+      "Configuration Rules",
+      "Origin Rules"
+    ],
+    "notes": "Single Redirects = dynamic/conditional and pattern-based; Bulk Redirects = large static one-to-one lists. Choose by shape, not just count. Dynamic targets use Rules-language expressions, which are Cloudflare-specific (mild lock-in). Not for header/path rewriting that stays on the same URL — that's Transform Rules."
+  },
+  {
+    "slug": "cloudflare-bulk-redirects",
+    "name": "Bulk Redirects",
+    "category": "Edge Rules / URL forwarding",
+    "tier": 2,
+    "oneLiner": "Account-level lists of up to a million static one-to-one URL redirects, applied edge-side via a Ruleset Engine rule.",
+    "replaces": "Stop hand-managing giant nginx `map`/return-301 files, _redirects spreadsheets, or a homegrown redirect-map microservice + database for thousands of legacy/migration URLs.",
+    "capabilities": [
+      "Define large numbers of URL redirects at the account level, usable across all domains in the account",
+      "Bulk Redirect Lists: named CSV-style collections of source -> target with per-entry settings",
+      "Bulk Redirect Rules: Ruleset-Engine rules that enable one or more lists and add optional matching conditions",
+      "Per-redirect parameters: status code, preserve query string, include/exclude subdomains, subpath matching, preserve path suffix",
+      "Upload/manage via dashboard or API; lists are reusable and shareable across zones in the account",
+      "Scales to very high redirect counts (up to 1,000,000 on Enterprise) without per-URL code"
+    ],
+    "apiSurface": "Dashboard: Account Home > Bulk Redirects (Lists + Rules). API: Lists API (kind=redirect items) plus Rulesets API at account level, phase http_request_redirect, action=redirect with action_parameters.from_list. Terraform: cloudflare_list (redirect items) + cloudflare_ruleset (account, http_request_redirect). No Wrangler/binding. Static only — no expressions in the target.",
+    "detectionSignals": [
+      "Huge nginx `map $request_uri $redirect { ... }` include files or thousands of `return 301` lines",
+      "A long `_redirects` file (hundreds/thousands of lines) or sprawling next.config/vercel.json redirects[]",
+      "A 'redirect service'/URL-shortener-style app backed by a DB table of from->to plus a 301 handler",
+      "CSV/Google-Sheet exports of legacy->new URLs consumed by a build step",
+      "Site-migration or domain-consolidation projects with massive one-to-one URL maps"
+    ],
+    "ideaPrompts": [
+      "Find large static from->to URL maps (nginx map files, _redirects, DB redirect tables) that should be a Bulk Redirect List.",
+      "Detect a homegrown redirect-map service/microservice that Bulk Redirects could replace entirely.",
+      "Spot a site-migration redirect spreadsheet/CSV being applied in app or build code instead of at the edge."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/url-forwarding/bulk-redirects/",
+      "https://developers.cloudflare.com/rules/url-forwarding/bulk-redirects/concepts/",
+      "https://developers.cloudflare.com/changelog/post/2025-02-12-rules-upgraded-limits/"
+    ],
+    "confidence": "high",
+    "pricing": "URL redirects across lists (Feb 2025 limits): Free 10,000; Pro 25,000; Business 50,000; Enterprise 1,000,000. (verify — drifts; rolled out gradually through H1 2025.)",
+    "limits": [
+      "Static only — no string replacement, no regex, no dynamic/expression targets (use Single Redirects or Snippets for those)",
+      "A single list cannot contain two redirects with the exact same source URL",
+      "Managed at account level; you still need a Bulk Redirect Rule to activate a list",
+      "Source URLs are matched literally (with the subdomain/subpath/path-suffix toggles) — no pattern logic"
+    ],
+    "pairsWith": [
+      "Single Redirects",
+      "Cloudflare Snippets",
+      "Configuration Rules"
+    ],
+    "notes": "The right tool for volume and simplicity, the wrong tool for logic. If targets must be computed or matched by pattern, use Single Redirects (dynamic) or Snippets. Lists live at the account level, which is great for multi-zone reuse but means redirects aren't co-located with a single zone's config. CSV import format is Cloudflare-specific."
+  },
+  {
+    "slug": "cloudflare-origin-rules",
+    "name": "Origin Rules",
+    "category": "Edge Rules / origin routing",
+    "tier": 2,
+    "oneLiner": "Per-request override of where and how Cloudflare connects to origin — Host header, SNI, resolved DNS hostname, and destination port.",
+    "replaces": "Stop juggling nginx `proxy_pass` upstreams + `proxy_set_header Host` + `proxy_ssl_name`/SNI, or maintaining a reverse-proxy box, just to route certain paths/hostnames to different backends or ports.",
+    "capabilities": [
+      "Host Header override: rewrite the Host header sent to origin (e.g. point a path at a third-party host)",
+      "DNS Record / Resolve Override: send the request to a different origin hostname than the one in the URL (must be a hostname on the same Cloudflare account)",
+      "SNI override: set the TLS SNI value for the origin handshake (static value; valid hostname on the same account)",
+      "Destination Port override: connect to origin on a specific port (1-65535) instead of the default",
+      "All overrides are conditional via Rules-language expressions (per path, hostname, header, etc.)",
+      "Combine with one rule to repoint a subset of traffic to an alternate backend without DNS changes"
+    ],
+    "apiSurface": "Dashboard: Rules > Origin Rules. API: Rulesets API, phase http_request_origin, action=route, action_parameters{host_header, origin{host, port}, sni{value}}. Terraform: cloudflare_ruleset (http_request_origin). No Wrangler/binding.",
+    "detectionSignals": [
+      "nginx `proxy_pass http://backend:9000;` + `proxy_set_header Host backend.internal;` + `proxy_ssl_name`/`proxy_ssl_server_name on;` blocks routing by location",
+      "HAProxy/Envoy backends or an Nginx upstream map selecting origin by path/host",
+      "A reverse-proxy/origin-router container whose only job is host/SNI/port rewriting toward different backends",
+      "App or LB config that forwards specific paths to a different internal service or non-standard port",
+      "Hardcoded Host-header rewrites for third-party origins (S3 website endpoints, SaaS backends)"
+    ],
+    "ideaPrompts": [
+      "Find nginx proxy_pass/proxy_set_header Host/proxy_ssl_name blocks that route by path and could become Origin Rules.",
+      "Detect a reverse-proxy or origin-router service that only overrides host/SNI/port toward alternate backends.",
+      "Spot non-standard origin ports or per-path backend selection in LB config that belongs in an Origin Rule."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/origin-rules/",
+      "https://developers.cloudflare.com/rules/origin-rules/features/"
+    ],
+    "confidence": "high",
+    "pricing": "All plans. Rules per zone: Free 10, Pro 25, Business 50, Enterprise 300. Host Header, SNI, and DNS/Resolve overrides are Enterprise-only; Destination Port override is available on all plans. (verify — drifts.)",
+    "limits": [
+      "Host Header / SNI / DNS-record overrides require Enterprise; lower plans get destination-port override only",
+      "SNI override accepts a static value only (no expression-driven SNI)",
+      "Resolve/SNI targets must be valid hostnames on the same Cloudflare account",
+      "Requires proxied (orange-cloud) DNS records; does not establish private connectivity (that's Tunnel/Spectrum)"
+    ],
+    "pairsWith": [
+      "Transform Rules",
+      "Configuration Rules",
+      "Cloud Connector",
+      "Cloudflare Tunnel"
+    ],
+    "notes": "The big caveat: the most useful overrides (Host/SNI/DNS) are Enterprise-gated, so on Pro/Business this is essentially a port-override tool. For pointing traffic at cloud object storage specifically, Cloud Connector wraps Origin-Rule-style host/SSL handling with a friendlier UI. Not a substitute for a secure tunnel to a private origin."
+  },
+  {
+    "slug": "cloudflare-configuration-rules",
+    "name": "Configuration Rules",
+    "category": "Edge Rules / per-request settings",
+    "tier": 2,
+    "oneLiner": "Override Cloudflare zone settings (SSL mode, cache, security level, Polish, Rocket Loader, etc.) per-request based on filter expressions.",
+    "replaces": "Stop building conditional edge/CDN config or per-path nginx server blocks that toggle TLS strictness, caching, or feature flags differently for /admin, /api, or specific hostnames.",
+    "capabilities": [
+      "Apply a different set of Cloudflare settings only to requests matching a Rules-language expression (path, hostname, IP, country, etc.)",
+      "Override SSL/TLS encryption mode, Browser Integrity Check, Security Level for matching traffic",
+      "Toggle performance features: Auto Minify (legacy), Rocket Loader, Mirage, Polish, Email Obfuscation, Hotlink Protection",
+      "Disable Apps, Disable Performance, Disable Security, Disable Zaraz, Disable Railgun (legacy) per match",
+      "Override Automatic HTTPS Rewrites, Opportunistic Encryption, and similar zone toggles selectively",
+      "Replaces the deprecated Page Rules settings actions with a Ruleset-Engine, expression-driven model"
+    ],
+    "apiSurface": "Dashboard: Rules > Configuration Rules. API: Rulesets API, phase http_config_settings, action=set_config with action_parameters listing the settings to override (e.g. ssl, security_level, rocket_loader, polish, email_obfuscation, bic, disable_apps). Terraform: cloudflare_ruleset (http_config_settings). No Wrangler/binding.",
+    "detectionSignals": [
+      "nginx per-location `ssl_verify_client`/different `proxy_cache`/security toggles by path",
+      "App code or CDN config that sets cache-control or disables features only for certain routes",
+      "Comments/configs like 'relax security on /webhooks' or 'stricter TLS for /admin'",
+      "Legacy Cloudflare Page Rules using Browser Integrity Check / Security Level / Cache Level actions",
+      "Per-hostname or per-path feature flags for Cloudflare performance/security features"
+    ],
+    "ideaPrompts": [
+      "Find per-path or per-hostname toggles of TLS strictness, security level, or caching that should be Configuration Rules.",
+      "Detect legacy Page Rules using settings actions that should migrate to Configuration Rules.",
+      "Spot 'disable feature X only on route Y' logic that belongs in an expression-driven Configuration Rule."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/configuration-rules/",
+      "https://developers.cloudflare.com/rules/configuration-rules/settings/"
+    ],
+    "confidence": "high",
+    "pricing": "All plans. Rules per zone: Free 10, Pro 25, Business 50, Enterprise 300. (verify — drifts; individual settings still gated by the plan that offers that feature, e.g. Polish needs Pro+.)",
+    "limits": [
+      "Can only override settings that exist on your plan (a rule can't enable a feature your plan lacks)",
+      "Affects Cloudflare's own settings only — not origin behavior or response bodies",
+      "Rule-count caps per plan; evaluation/override semantics follow Ruleset-Engine order",
+      "Requires proxied (orange-cloud) DNS records"
+    ],
+    "pairsWith": [
+      "Cache Rules",
+      "Transform Rules",
+      "Origin Rules",
+      "Custom Errors"
+    ],
+    "notes": "The modern replacement for Page Rules' settings actions — if you see Page Rules, that's a migration signal. It tunes Cloudflare knobs per request, nothing more; it cannot run code or mutate payloads. Low lock-in (it just toggles Cloudflare features) but the expressions and setting names are Cloudflare-specific."
+  },
+  {
+    "slug": "cloudflare-snippets",
+    "name": "Cloudflare Snippets",
+    "category": "Edge compute (lightweight)",
+    "tier": 2,
+    "oneLiner": "Short pieces of JavaScript run at the edge, bound to a filter expression, for request/response logic too complex for declarative rules but too small for a Worker.",
+    "replaces": "Stop deploying a full Worker, a tiny Lambda@Edge/CloudFront Function, or a VCL snippet just to do a JWT check, conditional redirect, A/B split, or custom header logic at the edge.",
+    "capabilities": [
+      "Run standard JavaScript on Cloudflare's network using Web-platform APIs (fetch, Request, Response, URL, Web Crypto)",
+      "Same code model as Workers: ES-module `export default { async fetch(request) { ... } }` returning/forwarding a Response",
+      "Bind each snippet to a Snippet Rule whose Rules-language expression decides when it runs (bot score, country, cookie, path, WAF attack score, etc.)",
+      "Chain multiple snippets — each receives the request as modified by the previous one",
+      "Common uses: JWT/token validation, conditional and dynamic redirects, header rewriting, A/B testing, request normalization",
+      "Lower barrier than Workers — no Wrangler project required; editable in-dashboard",
+      "Manage as code via API and Terraform (cloudflare_snippet + cloudflare_snippet_rules)"
+    ],
+    "apiSurface": "Dashboard: Rules > Snippets (code editor + Snippet Rules). API: Snippets API (PUT snippet content, snippet_rules for triggers). Terraform: cloudflare_snippet { name, main_module, files{...} } + cloudflare_snippet_rules { rules{ expression, snippet_name } }. Code model is ES-module fetch handler like Workers, but NO bindings (no KV/D1/R2/DO/secrets/env/cron) and no Wrangler dev workflow.",
+    "detectionSignals": [
+      "Lambda@Edge / CloudFront Functions or Fastly VCL snippets that only do header logic, JWT checks, or redirects",
+      "A minimal Cloudflare Worker that uses no bindings and just rewrites/validates requests (over-provisioned)",
+      "Edge middleware (Next.js middleware, Vercel Edge Functions) doing small auth/redirect/header tasks",
+      "Hand-rolled JWT verification or signed-cookie checks running in a tiny proxy in front of the app",
+      "A/B-test or feature-flag routing implemented in a small edge function"
+    ],
+    "ideaPrompts": [
+      "Find Lambda@Edge/CloudFront Functions or VCL snippets doing JWT checks, header logic, or redirects that map to a Snippet.",
+      "Detect a binding-less Worker or edge middleware that's small enough to be a Snippet instead.",
+      "Spot edge JWT validation or A/B routing code that could be a Snippet bound to a filter expression."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/snippets/",
+      "https://developers.cloudflare.com/rules/snippets/when-to-use/",
+      "https://developers.cloudflare.com/rules/snippets/how-it-works/",
+      "https://developers.cloudflare.com/changelog/post/2024-12-11-terraform-snippets/"
+    ],
+    "confidence": "high",
+    "pricing": "Paid plans only (NOT on Free). Code snippets + rules per zone: Pro 25, Business 50, Enterprise 300. Per-invocation limits: ~5 ms CPU, 2 MB memory, 32 KB max package size; subrequests Pro 2 / Business 3 / Enterprise 5. (verify — drifts.)",
+    "limits": [
+      "No bindings: no KV, D1, R2, Durable Objects, environment variables, or secrets",
+      "No persistent state, no cron triggers, no heavy compute (no image transforms / AI inference)",
+      "JavaScript only (Workers also do TS/Python/Rust); HTTP/HTTPS only; no observability/logs or gradual version rollouts",
+      "Tight CPU (~5 ms), memory (2 MB), package size (32 KB) and subrequest caps; not on Free plan"
+    ],
+    "pairsWith": [
+      "Transform Rules",
+      "Single Redirects",
+      "Cloudflare Workers",
+      "Configuration Rules"
+    ],
+    "notes": "Snippets are the on-ramp; when you need state, bindings, secrets, observability, more CPU, or versioned rollouts, graduate to Workers (the migration is natural because the code model matches). The 5 ms / 2 MB / 32 KB ceilings are real and easy to hit. Note this is the inverse of most catalog entries: here the 'managed service' replaces a *Worker* you don't need yet, as well as foreign-cloud edge functions."
+  },
+  {
+    "slug": "cloudflare-cloud-connector",
+    "name": "Cloud Connector",
+    "category": "Edge Rules / origin routing",
+    "tier": 2,
+    "oneLiner": "Rule-based routing of matching website traffic directly to public cloud object storage or origins (R2, S3, GCS, Azure) with Host/SSL handled for you.",
+    "replaces": "Stop running a reverse-proxy/origin-router box (nginx/HAProxy or a small app) whose only job is to forward certain paths to S3/GCS/Azure buckets with the right Host header and TLS.",
+    "capabilities": [
+      "Route incoming requests matching a rule to a public cloud provider you define",
+      "Supported destinations: Cloudflare R2, AWS S3, Google Cloud Storage, Azure (blob storage)",
+      "Cloudflare auto-applies the needed Host header rewrite and SSL/TLS settings for the chosen endpoint",
+      "Match traffic by path/hostname/expression so only part of a site is served from cloud storage",
+      "Beta across all plan tiers; configured entirely in the dashboard with per-provider presets",
+      "Effectively packages Origin-Rule-style host/SNI handling into a guided cloud-storage connector"
+    ],
+    "apiSurface": "Dashboard: Rules > Cloud Connector (rule list with provider + destination). API: Cloud Connector rules API (and underlying Origin-Rule-style origin/host behavior). Terraform/Wrangler: not documented for this beta — treat as dashboard/API only. No binding.",
+    "detectionSignals": [
+      "nginx/HAProxy/Apache config that proxies a path to `*.s3.amazonaws.com` / `storage.googleapis.com` / `*.blob.core.windows.net` with a Host rewrite",
+      "An app route or small service that fetches from a bucket and streams it back (origin-router pattern)",
+      "S3 website-endpoint or GCS bucket fronted by a custom proxy purely for custom-domain + TLS",
+      "Env vars / config naming a public bucket as the upstream for static assets",
+      "A CDN-origin shim whose only responsibility is bucket Host-header + SSL handling"
+    ],
+    "ideaPrompts": [
+      "Find a reverse proxy that forwards paths to S3/GCS/Azure buckets with a Host rewrite — Cloud Connector replaces it.",
+      "Detect an app/origin-router service that just streams public bucket objects back to clients.",
+      "Spot a custom proxy fronting an S3 website endpoint for custom-domain + TLS that Cloud Connector handles natively."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/cloud-connector/",
+      "https://developers.cloudflare.com/rules/cloud-connector/providers/",
+      "https://developers.cloudflare.com/changelog/post/2025-02-12-rules-upgraded-limits/"
+    ],
+    "confidence": "high",
+    "pricing": "All plans (beta). Connectors: Free 10, Enterprise 300 (raised Feb 2025); mid-tiers scale between. (verify — drifts; beta status may change limits/pricing.)",
+    "limits": [
+      "Your object storage bucket must be publicly accessible for Cloud Connector to work",
+      "Does not handle URL rewrites or caching automatically — configure Transform Rules / Cache Rules separately if needed",
+      "Beta feature; API/Terraform coverage and provider list may be incomplete or shifting",
+      "Limited to supported providers (R2, S3, GCS, Azure)"
+    ],
+    "pairsWith": [
+      "Origin Rules",
+      "Transform Rules",
+      "Cache Rules",
+      "Cloudflare R2"
+    ],
+    "notes": "Best fit: serving static assets/files from a public bucket under your own domain without a proxy box. The public-bucket requirement is the key gotcha — for private buckets you still need signed access or a Worker. It's essentially a guided Origin Rule; if you outgrow the presets, drop to Origin Rules / Workers. Beta, so verify before depending on it."
+  },
+  {
+    "slug": "cloudflare-custom-errors",
+    "name": "Custom Errors",
+    "category": "Edge Rules / response shaping",
+    "tier": 3,
+    "oneLiner": "Serve branded, custom error pages and bodies at the edge for HTTP 4xx/5xx, security challenges, WAF blocks, and rate-limit responses.",
+    "replaces": "Stop maintaining custom error_page templates in nginx, ErrorDocument in Apache, or per-app 4xx/5xx HTML and a CDN error-page bucket just to brand error and block pages.",
+    "capabilities": [
+      "Replace default Cloudflare error pages with your own content for status codes 400 and above",
+      "Custom Error Rules: serve custom inline content or a fetched URL when conditions match (Ruleset-Engine driven)",
+      "Error Pages: zone-level or account-level branded pages for challenges, WAF blocks, rate limiting, and 5xx",
+      "Custom Error Assets: upload/reference assets that Cloudflare fetches and caches globally (source can go away afterward)",
+      "Covers errors from origin, from Cloudflare products (including Workers), and from security challenges",
+      "Zone-level rules override account-level config and take precedence over Error Pages; custom WAF responses win over these",
+      "Enterprise-only Origin Error Pages for origin-generated errors"
+    ],
+    "apiSurface": "Dashboard: Rules > Custom Errors / Custom Pages (zone + account). API: Custom Errors API (Custom Error Rules via Rulesets API, action serves custom response; plus Custom Pages/assets endpoints). Terraform: cloudflare_custom_pages and ruleset-based error rules. No Wrangler/binding.",
+    "detectionSignals": [
+      "nginx `error_page 404 /404.html;` / `error_page 500 502 503 504 /50x.html;` blocks",
+      "Apache `ErrorDocument 404 ...` / `ErrorDocument 500 ...`",
+      "Per-app custom 4xx/5xx HTML templates plus middleware that renders them",
+      "A static bucket of branded error pages fronted by the CDN",
+      "Custom 'maintenance' or 'blocked' pages wired up for WAF/rate-limit responses"
+    ],
+    "ideaPrompts": [
+      "Find nginx error_page / Apache ErrorDocument directives serving branded HTML that Custom Errors could host at the edge.",
+      "Detect app-rendered 4xx/5xx templates or a CDN error-page bucket replaceable by Custom Error Rules.",
+      "Spot custom WAF/rate-limit block pages that should be Cloudflare Custom Errors."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/custom-errors/",
+      "https://developers.cloudflare.com/rules/custom-errors/create-rules/",
+      "https://developers.cloudflare.com/changelog/post/2025-02-12-rules-upgraded-limits/"
+    ],
+    "confidence": "high",
+    "pricing": "Paid plans only (NOT Free). Custom error assets + rules per zone: Pro 25, Business 50, Enterprise 300. Origin Error Pages: Enterprise only. (verify — drifts.)",
+    "limits": [
+      "Error Pages won't render (Cloudflare default shown instead) if the request lacks an accept-encoding header — does not affect Custom Error Rules",
+      "Error Pages exclude some status codes (e.g. 500, 501, 503, 505 for the Error Pages flavor)",
+      "Custom WAF block responses take priority over Custom Errors content",
+      "Origin Error Pages are Enterprise-only; not available on Free"
+    ],
+    "pairsWith": [
+      "Cloudflare WAF",
+      "Rate Limiting",
+      "Configuration Rules",
+      "Managed Transforms"
+    ],
+    "notes": "Two overlapping mechanisms (legacy Custom/Error Pages vs newer Custom Error Rules) with a precedence order — read the ordering before relying on it. The accept-encoding gotcha trips people up for API clients. Branding-layer feature; low lock-in (just HTML/assets), but the rule/precedence model is Cloudflare-specific."
+  },
+  {
+    "slug": "cloudflare-managed-transforms",
+    "name": "Managed Transforms",
+    "category": "Edge Rules / HTTP headers",
+    "tier": 3,
+    "oneLiner": "One-click toggles for common request/response header transforms (add visitor IP/geo headers, strip leaky headers, bot/leaked-credential headers) without writing a rule.",
+    "replaces": "Stop hand-writing nginx `proxy_set_header X-Forwarded-For/CF-Connecting-IP`, geo-IP header injection, or `more_clear_headers Server X-Powered-By` — and stop authoring custom Transform Rules for these standard cases.",
+    "capabilities": [
+      "Add visitor location (geo) headers to requests forwarded to origin (country, city, lat/long, etc.)",
+      "Add true-client-IP / visitor IP headers; or remove visitor IP headers from origin requests",
+      "Add bot-management request headers and leaked-credential-check headers (where entitled)",
+      "Add common security-related response headers",
+      "Remove the X-Powered-By response header to reduce fingerprinting",
+      "Applied to all matching inbound requests for the zone; deployed as internal Transform Rules that do NOT count against your Transform Rules quota",
+      "Internal rules don't clutter the Transform Rules list in the dashboard"
+    ],
+    "apiSurface": "Dashboard: Rules > Settings / Managed Transforms (toggle list). API: Managed Transforms API (enable/disable named transforms). Terraform: supported (managed-transforms settings). No Wrangler/binding. These are toggles, not authored expressions.",
+    "detectionSignals": [
+      "nginx `proxy_set_header X-Forwarded-For $remote_addr;` / `X-Real-IP` / custom geo headers via GeoIP module",
+      "App code reading a homemade geo header or trusting X-Forwarded-For it sets itself",
+      "`more_clear_headers`/`header_filter_by_lua` removing Server / X-Powered-By",
+      "Express `app.disable('x-powered-by')` or middleware stripping fingerprinting headers",
+      "Custom Transform Rules that merely re-implement standard add-true-client-IP / add-geo behavior"
+    ],
+    "ideaPrompts": [
+      "Find nginx/app code injecting visitor-IP or geo headers that Managed Transforms can add with one toggle.",
+      "Detect header-stripping (Server/X-Powered-By) that a Managed Transform handles natively.",
+      "Spot custom Transform Rules duplicating standard managed transforms and reclaim quota."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/transform/managed-transforms/",
+      "https://developers.cloudflare.com/rules/transform/managed-transforms/reference/",
+      "https://developers.cloudflare.com/rules/transform/managed-transforms/configure/"
+    ],
+    "confidence": "high",
+    "pricing": "Available across plans (individual transforms may be gated by entitlement, e.g. Bot Management headers require the add-on). Managed Transforms do not consume the Transform Rules quota. (verify — drifts; check the reference for per-transform availability.)",
+    "limits": [
+      "Fixed catalog of pre-built transforms — not customizable per-condition (use Transform Rules for that)",
+      "Some transforms (bot management, leaked-credential headers) require the corresponding product/add-on",
+      "Apply zone-wide to all inbound requests, not per-path",
+      "Internal rules are invisible in the Transform Rules list (less transparency)"
+    ],
+    "pairsWith": [
+      "Transform Rules",
+      "Bot Management",
+      "Configuration Rules"
+    ],
+    "notes": "Strictly the common-case shortcut on top of Transform Rules. If you need a header only on certain paths or with a computed value, write a Transform Rule instead. Reclaiming quota is a nice side benefit since managed transforms don't count. Trivial lock-in."
+  },
+  {
+    "slug": "cloudflare-compression-rules",
+    "name": "Compression Rules",
+    "category": "Edge Rules / performance",
+    "tier": 3,
+    "oneLiner": "Control which response-compression algorithm Cloudflare applies (Brotli, gzip, zstd) by content type or file extension, via edge rules.",
+    "replaces": "Stop tuning nginx `gzip`/`brotli`/`gzip_types`/`brotli_types` and ngx_brotli module config, or Apache mod_deflate/mod_brotli `AddOutputFilterByType`, just to choose compression per content type.",
+    "capabilities": [
+      "Define an ordered list of compression algorithms; Cloudflare picks the first the visitor's browser supports (per Accept-Encoding)",
+      "Match by response media type (http.response.content_type.media_type) and/or request file extension (http.request.uri.path.extension)",
+      "Enable/disable or change compression for specific content types (e.g. compress JSON/SVG, skip already-compressed assets)",
+      "Supports modern algorithms including Brotli, gzip, and zstd (where available)",
+      "Full Rules-language expressions for conditional compression",
+      "Dashboard templates plus API/Terraform management"
+    ],
+    "apiSurface": "Dashboard: Rules > Compression Rules (Rules Overview). API: Rulesets API, phase http_response_compression, action=compress_response with action_parameters.algorithms[] (e.g. brotli, gzip, zstd, none, auto). Terraform: cloudflare_ruleset (http_response_compression). No Wrangler/binding.",
+    "detectionSignals": [
+      "nginx `gzip on; gzip_types ...;` / `brotli on; brotli_types ...;` (ngx_brotli) tuning",
+      "Apache `AddOutputFilterByType DEFLATE ...` / mod_brotli config",
+      "App-level compression middleware (Express `compression()`, Django GZipMiddleware) chosen per content type",
+      "Build steps pre-compressing assets and config deciding which types to serve compressed",
+      "CDN config explicitly enabling/disabling Brotli vs gzip per file type"
+    ],
+    "ideaPrompts": [
+      "Find nginx gzip_types/brotli_types or Apache mod_deflate tuning that Compression Rules can express at the edge.",
+      "Detect app-level compression middleware configured per content type that Cloudflare could own.",
+      "Spot per-extension compress/skip decisions (e.g. don't re-compress images) that belong in a Compression Rule."
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/rules/compression-rules/",
+      "https://developers.cloudflare.com/rules/compression-rules/settings/",
+      "https://developers.cloudflare.com/changelog/post/2025-02-12-rules-upgraded-limits/"
+    ],
+    "confidence": "high",
+    "pricing": "All plans. Rules per zone: Free 10, Pro 25, Business 50, Enterprise 300. (verify — drifts.)",
+    "limits": [
+      "No compression occurs if the browser supports none of the listed algorithms, or if origin sends cache-control: no-transform",
+      "When multiple rules match, the last matching rule wins",
+      "Controls algorithm selection, not custom compression levels/dictionaries",
+      "Requires proxied (orange-cloud) DNS records"
+    ],
+    "pairsWith": [
+      "Cache Rules",
+      "Transform Rules",
+      "Configuration Rules"
+    ],
+    "notes": "Narrow but handy: it governs which algorithm Cloudflare uses, replacing fiddly per-type web-server compression config. The no-transform and 'last rule wins' behaviors are the main gotchas. Cloudflare already auto-compresses sensibly, so only reach for this when you need to override defaults. Minimal lock-in."
+  },
+  {
+    "slug": "workers-builds",
+    "name": "Workers Builds",
+    "category": "Compute / CI-CD",
+    "tier": 2,
+    "oneLiner": "Git-connected CI/CD that builds and deploys your Worker on every push, run on Cloudflare's own build infrastructure.",
+    "replaces": "A GitHub Actions / GitLab CI / CircleCI pipeline whose entire job is to checkout, install, build, and run `wrangler deploy` against Cloudflare.",
+    "capabilities": [
+      "Connect a GitHub or GitLab repo to a Worker; a push to the connected branch triggers a build + deploy (configured via Settings > Builds in the dashboard).",
+      "Runs a configurable build command and deploy command; with `wrangler deploy` as the deploy command, a successful build is uploaded as a version and promoted to the Active Deployment.",
+      "Preview-only mode: set deploy command to `npx wrangler versions upload` to build + upload a version (with a generated preview URL) without promoting it to production.",
+      "Build branches / automatic pull request builds: non-production branches and PRs can trigger builds for preview before merge.",
+      "Build watch paths to skip builds when irrelevant paths change (monorepo support).",
+      "Build caching to speed up dependency install / build steps across runs.",
+      "Deploy Hooks: unique URLs to trigger a build from an external system (rate-limited 10/min per Worker, 100/min per account).",
+      "Build-time environment variables (up to 64, 5 KB each) and a Builds API reference for programmatic management."
+    ],
+    "apiSurface": "Dashboard: Workers & Pages > (Worker) > Settings > Builds to connect repo and set build/deploy commands. Wrangler config file (wrangler.toml / wrangler.jsonc) is required and its `name` must match the dashboard Worker name. Deploy command is typically `wrangler deploy` (deploy) or `wrangler versions upload` (preview only). Builds API reference + Deploy Hook URLs for external triggering. GitHub/GitLab integration via OAuth app install.",
+    "detectionSignals": [
+      "A `.github/workflows/*.yml` (or `.gitlab-ci.yml` / `.circleci/config.yml`) whose only real step is `npm ci && npx wrangler deploy` (or uses `cloudflare/wrangler-action`).",
+      "`CLOUDFLARE_API_TOKEN` / `CF_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` stored as CI secrets purely to authenticate wrangler deploys.",
+      "A wrangler.toml/wrangler.jsonc in the repo paired with a hand-written deploy pipeline.",
+      "Custom shell scripts (deploy.sh) that wrap `wrangler deploy` with branch logic.",
+      "Multiple near-identical workflow files for prod vs preview/staging branch deploys."
+    ],
+    "ideaPrompts": [
+      "This GitHub Actions workflow only does `npm ci && wrangler deploy` with a CF API token secret — replace it with Workers Builds connected to the repo so pushes auto-deploy without managing CI minutes or tokens.",
+      "You deploy preview branches via a second CI workflow — use Workers Builds branch/PR builds with `wrangler versions upload` to get preview URLs per PR instead.",
+      "Your monorepo rebuilds the Worker on every commit — configure Workers Builds watch paths + build caching so only relevant changes trigger a deploy."
+    ],
+    "pairsWith": [
+      "Workers",
+      "Wrangler",
+      "Workers Observability",
+      "Workers Logs",
+      "Workers (Versions & Gradual Deployments)"
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/workers/ci-cd/builds/",
+      "https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/",
+      "https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/",
+      "https://developers.cloudflare.com/workers/ci-cd/index.md"
+    ],
+    "pricing": "Build minutes: 3,000/month on Free, 6,000/month on Workers Paid then +$0.005 per build minute. Concurrency: 1 (Free) / 6 (Paid). Build timeout 20 min. Build runner: 2 vCPU/8 GB (Free), 4 vCPU/8 GB (Paid), 20 GB disk. (verify — drifts.)",
+    "limits": [
+      "20-minute hard build timeout per build.",
+      "1 concurrent build on Free, 6 on Paid (queued beyond that).",
+      "GitHub/GitLab only for native git integration (no Bitbucket native connect; use Deploy Hooks for other systems).",
+      "64 build env vars, 5 KB each; Deploy Hooks rate-limited 10/min per Worker, 100/min per account.",
+      "Worker `name` in wrangler config must exactly match the dashboard Worker."
+    ],
+    "confidence": "high",
+    "notes": "Tighter integration than external CI but Cloudflare-specific: your build/deploy pipeline now lives in the CF dashboard, not in-repo YAML, which reduces portability if you later leave Workers. Cloudflare still documents External CI/CD (GitHub Actions / GitLab CI with wrangler-action) as a supported alternative — prefer that when you need a shared org-wide pipeline, custom runners, complex multi-service orchestration, or build steps unrelated to the Worker. Native git connect is GitHub/GitLab only."
+  },
+  {
+    "slug": "workers-observability",
+    "name": "Workers Observability / Workers Logs",
+    "category": "Observability",
+    "tier": 2,
+    "oneLiner": "Built-in logs, live tail, traces, and invocation analytics for Workers — queryable in the dashboard with no log-shipping agent or third-party APM.",
+    "replaces": "Shipping Worker console output and invocation metadata to Datadog / CloudWatch / Splunk / New Relic (and the agents, log drains, and per-GB ingest bills that come with them) just to see what your Worker is doing.",
+    "capabilities": [
+      "Workers Logs: automatically ingest, store, filter, and analyze logs emitted from a Worker, retained in your Cloudflare account and queryable per-Worker in the dashboard Observability tab (enable via `[observability] enabled = true`).",
+      "Captures `console.log()` output, structured JSON (auto-indexed for querying), invocation/event metadata, and uncaught exceptions.",
+      "Query Builder: write structured queries with filters, aggregations, and groupings to investigate and visualize telemetry and spot patterns.",
+      "Built-in metrics & analytics: request counts, error rates, CPU time, wall time, and execution duration, per-Worker or aggregated.",
+      "Real-time logs: stream live log events via `wrangler tail` or the dashboard for immediate feedback.",
+      "Tail Workers (`tail_consumers`): a Worker that receives another Worker's telemetry to apply custom filtering, sampling, and transformation.",
+      "Traces: end-to-end request visibility with automatic instrumentation.",
+      "Export to any OTLP endpoint (Honeycomb, Grafana Cloud, Axiom, Sentry) and Workers Logpush to external destinations (R2, Datadog, Splunk, etc.) when you do want to keep an external sink."
+    ],
+    "apiSurface": "wrangler config: `[observability] enabled = true` + `head_sampling_rate` (0–1) in wrangler.toml/wrangler.jsonc (per-env under `[env.<name>.observability]`); requires Wrangler 3.78.6+. CLI: `wrangler tail` for real-time logs. Binding-style: `tail_consumers` to attach a Tail Worker. Logpush: `logpush = true` in wrangler config to enable Workers Trace Events Logpush. Dashboard: Workers & Pages > (Worker) > Observability (logs view + Query Builder + metrics). MCP server available for querying observability data.",
+    "detectionSignals": [
+      "`datadog`, `dd-trace`, `@datadog/browser-logs`, `winston-cloudwatch`, `aws-sdk` CloudWatch Logs `putLogEvents`, or Splunk HEC calls inside a Worker just to emit logs.",
+      "A Worker doing `fetch()` to a log-collector endpoint (Datadog intake, Logtail, Logflare, Better Stack) on every request.",
+      "`DD_API_KEY`, `DATADOG_API_KEY`, `LOGTAIL_TOKEN`, `NEW_RELIC_LICENSE_KEY`, Splunk HEC tokens in Worker secrets/vars.",
+      "Hand-rolled structured-logging wrappers around `console.log` plus a buffer/flush to an external HTTP sink (and the `ctx.waitUntil` flush plumbing).",
+      "No `[observability]` block in wrangler config despite heavy external logging — i.e. paying twice."
+    ],
+    "ideaPrompts": [
+      "This Worker POSTs every request's logs to Datadog via fetch + a DD API key — enable Workers Logs (`[observability] enabled = true`) and query in the dashboard instead of paying per-GB ingest.",
+      "You wrote a console.log wrapper that buffers and ships to CloudWatch with the AWS SDK — drop it and use built-in Workers Logs + Query Builder, or Logpush if you still need an external sink.",
+      "You poll a third-party APM for Worker error rate and CPU time — those are built-in Workers metrics; use the Observability tab / Query Builder.",
+      "You need logs in your existing Grafana/Honeycomb — keep Workers Logs for debugging and add OTLP export instead of an in-Worker SDK."
+    ],
+    "pairsWith": [
+      "Workers",
+      "Workers Builds",
+      "Wrangler",
+      "Workers Logpush",
+      "Tail Workers",
+      "R2 (Logpush destination)"
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/workers/observability/",
+      "https://developers.cloudflare.com/workers/observability/logs/",
+      "https://developers.cloudflare.com/workers/observability/logs/workers-logs/",
+      "https://developers.cloudflare.com/workers/observability/logs/logpush/"
+    ],
+    "pricing": "Workers Logs included with Workers (enable via observability config); head-based sampling via `head_sampling_rate`. Workers Logpush requires the Workers Paid plan. OTLP/Logpush egress and any third-party destination billed by that destination. (verify — drifts.)",
+    "limits": [
+      "Workers Logs retention is 7 days (max).",
+      "Account limit ~5 billion logs/account/day; individual log capped at 256 KB.",
+      "Logpush `logs` + `exceptions` fields share a 16,384-character cap before truncation.",
+      "Logpush is Workers Paid only; Tail Workers is beta.",
+      "head_sampling_rate controls what fraction of invocations are logged (default 1.0) — sampling below 1 means not every request is captured."
+    ],
+    "confidence": "high",
+    "notes": "Best for debugging, live tail, and short-window analytics native to Workers. NOT a full-retention log warehouse or cross-service APM: 7-day retention and per-Worker scope mean you still want Logpush-to-R2/SIEM or OTLP export for compliance retention, long-term analytics, or unifying with non-Cloudflare services. Structured JSON logging maximizes query value. Enabling observability without sampling on very high-volume Workers can hit the daily log cap — tune head_sampling_rate."
+  },
+  {
+    "slug": "network-protocol-settings",
+    "name": "Network & Protocol Settings (zone toggles)",
+    "category": "Network / Edge config",
+    "tier": 3,
+    "oneLiner": "Zone-level toggles that turn on modern transport and protocol support — HTTP/2, HTTP/3 (QUIC), gRPC, WebSockets, IPv6, Onion Routing — at Cloudflare's edge instead of in your own server/LB config.",
+    "replaces": "Hand-tuning protocol support on nginx/HAProxy/Envoy or your cloud load balancer: nginx `listen 443 ssl http2`, ALPN/QUIC builds, `grpc_pass`, `proxy_set_header Upgrade` WebSocket plumbing, dual-stack AAAA/IPv6 listeners, and bespoke Tor handling.",
+    "capabilities": [
+      "HTTP/2: terminated at Cloudflare's edge, enabled by default for all plans (requires an SSL cert at the edge); API setting `http2`.",
+      "HTTP/3 (QUIC): accept inbound requests over HTTP/3; toggled in dashboard Speed > Settings > Protocol Optimization (zone setting, typically `http3`).",
+      "gRPC: 'Protect your APIs on any proxied gRPC endpoints' — edge support for gRPC over HTTP/2, reducing bandwidth/latency (Network > gRPC toggle).",
+      "WebSockets: proxy WebSocket connections through Cloudflare with no extra setup; API setting `websockets`; only the initial upgrade counts as an HTTP request.",
+      "IPv6 Compatibility: auto-generates AAAA records so IPv6 clients can reach an IPv4 origin; on by default; API setting `ipv6` (Pseudo IPv4 available for IPv4-only origins).",
+      "Onion Routing: serve content directly over the Tor network without exit nodes, send an alt-svc header pointing Tor Browser to a `.onion`, and distinguish human Tor users from malicious bots; API setting `opportunistic_onion`.",
+      "Related Protocol Optimization toggles: 0-RTT Connection Resumption, HTTP/2 to Origin, Enhanced HTTP/2 Prioritization."
+    ],
+    "apiSurface": "Dashboard: Network page for WebSockets, gRPC, IPv6 Compatibility, Onion Routing toggles; Speed > Settings > Protocol Optimization for HTTP/2, HTTP/3 (QUIC), 0-RTT, HTTP/2 to Origin. Zone Settings API: PATCH the zone setting by name — confirmed `http2`, `ipv6` (set value `\"off\"` to disable), `websockets` (value `\"on\"`), `opportunistic_onion` (value `\"on\"`); HTTP/3 and 0-RTT are toggled the same way (settings typically `http3` / `0rtt`). Terraform: `cloudflare_zone_settings_override` / per-setting resources.",
+    "detectionSignals": [
+      "nginx `listen 443 ssl http2;` / `listen 443 quic reuseport;` / `http3 on;`, or a custom-built nginx/Caddy for QUIC support.",
+      "nginx `grpc_pass` / `grpc_set_header`, or an Envoy/HAProxy config dedicated to gRPC fronting.",
+      "WebSocket reverse-proxy boilerplate: `proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection \"upgrade\";` and connection-upgrade maps.",
+      "Dual-stack listener config / explicit AAAA record management / IPv6 socket handling at the origin.",
+      "Bespoke Tor/.onion handling, exit-node allowlists, or a separate hidden-service deployment.",
+      "Cert/ALPN wrangling to advertise HTTP/2 over ALPN at the origin LB."
+    ],
+    "ideaPrompts": [
+      "Your nginx config hand-enables `http2` and a custom `quic`/`http3` build — if the zone is proxied through Cloudflare, flip the HTTP/2 and HTTP/3 toggles (Speed > Protocol Optimization) and let the edge terminate them.",
+      "You maintain `grpc_pass` plumbing on nginx to front a gRPC service — enable Cloudflare's gRPC toggle (endpoint on 443, TLS + HTTP/2 over ALPN) and get WAF/edge in front of it.",
+      "You run a separate Tor hidden service for .onion users — enable Onion Routing (`opportunistic_onion`) to serve the same site over Tor without exit nodes.",
+      "You manually manage AAAA records / dual-stack listeners for IPv6 — IPv6 Compatibility (`ipv6`) is on by default and auto-generates AAAA so IPv4-only origins still serve v6 clients."
+    ],
+    "pairsWith": [
+      "SSL/TLS (edge certificates)",
+      "WAF",
+      "Bot Management",
+      "Spectrum",
+      "Load Balancing",
+      "Pseudo IPv4"
+    ],
+    "docs": [
+      "https://developers.cloudflare.com/network/",
+      "https://developers.cloudflare.com/network/grpc-connections/",
+      "https://developers.cloudflare.com/network/websockets/",
+      "https://developers.cloudflare.com/network/ipv6-compatibility/",
+      "https://developers.cloudflare.com/network/onion-routing/",
+      "https://developers.cloudflare.com/speed/optimization/protocol/http2/"
+    ],
+    "pricing": "All of these toggles are available across Free, Pro, Business, and Enterprise (HTTP/2, gRPC, WebSockets, IPv6, Onion Routing all list Free–Enterprise availability). Some add-on products invoked by traffic (WAF, Bot Management) bill separately; Enterprise gets extra customization (e.g. WebSocket idle timeout, IPv6 setting control). (verify — drifts.)",
+    "limits": [
+      "HTTP/2: Free-plan domains cannot disable it; Pro+ can customize.",
+      "HTTP/2 / HTTP/3 require an SSL certificate at Cloudflare's edge; HTTP/3 needs HTTP/2 prerequisites in place.",
+      "gRPC requires endpoint on port 443, TLS + HTTP/2 advertised over ALPN, `application/grpc` content-type, proxied hostname, and at least Full SSL/TLS mode; WAF only inspects gRPC headers at connection phase (not stream content), and Cloudflare Access does not support gRPC through the reverse proxy.",
+      "WebSockets: idle/no-data connections are terminated (custom timeout is Enterprise-only); only Cloudflare→client bytes count toward bandwidth; use session affinity behind Load Balancing.",
+      "Onion Routing: Cloudflare does not issue certs for the `.onion` domain, so it cannot be served over HTTPS.",
+      "IPv6: even when disabled the zone may still receive IPv6 traffic via other routes (e.g. Tor); only Enterprise can fully customize the setting."
+    ],
+    "confidence": "high",
+    "notes": "These only help when the hostname is proxied (orange-cloud) through Cloudflare — they are edge-termination/optimization toggles, not origin changes, so your origin can keep speaking HTTP/1.1 plain. Lock-in is minimal (they're standard protocols), but the convenience disappears if you go DNS-only/grey-cloud. API setting name `http2` is confirmed verbatim; `ipv6`, `websockets`, `opportunistic_onion` are confirmed; `http3`/`0rtt` are the conventional Zone-Settings names but were not quoted verbatim in the pages fetched — verify against the Zone Settings API reference. HTTP/3 and gRPC live in different dashboard areas (Speed > Protocol Optimization vs Network) than the other Network toggles."
+  }
+]

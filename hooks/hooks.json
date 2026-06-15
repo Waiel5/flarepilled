@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/flarepilled-activate.js\"",
+            "commandWindows": "node \"%CLAUDE_PLUGIN_ROOT%\\hooks\\flarepilled-activate.js\"",
+            "timeout": 5,
+            "statusMessage": "Loading flarepilled..."
+          }
+        ]
+      }
+    ]
+  }
+}

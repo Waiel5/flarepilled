@@ -1,0 +1,8 @@
+{
+  "name": "flarepilled",
+  "version": "0.1.0",
+  "description": "Cloudflare-pilled architect mode. Catches capabilities you're hand-rolling or renting from another vendor that Cloudflare already runs as a managed edge primitive — across 112 products (storage, cache, queues, cron, auth, CAPTCHA, vector search, RAG, LLM gateway, images, video, email, the Zero Trust/SASE stack, and the Rules family) — and surfaces honest, doc-verified, confidence-rated swaps. The best infrastructure is the kind you never operate.",
+  "author": {
+    "name": "grey"
+  }
+}

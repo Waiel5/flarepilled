@@ -1,0 +1,464 @@
+[
+  {
+    "name": "Astro",
+    "kind": "framework",
+    "oneLiner": "JavaScript web framework optimized for fast, content-driven websites, built on islands architecture that ships zero JavaScript by default.",
+    "ownership": "The Astro Technology Company (the company behind Astro) was acquired by Cloudflare; deal announced 2026-01-16 (terms undisclosed). All full-time Astro Technology Company employees became Cloudflare employees and continue working on Astro full-time. The Astro framework itself stays OSS (MIT-licensed), with open governance and a public community roadmap unchanged. Critical distinction: Cloudflare bought the COMPANY/team, not the project — the project remains independent, MIT-licensed, and platform-agnostic. Founded/led by Fred Schott (CEO of The Astro Technology Company). Co-creators include Matthew Phillips and Nate Moore (not individually confirmed by name in fetched primary sources).",
+    "whyOnCloudflare": "Astro is now Cloudflare's own framework — Matthew Prince called it 'the best web framework for content-driven websites' and Cloudflare is making itself a 'first-class Astro runtime'. Astro leads real-world Core Web Vitals (66% passing vs Next.js 30%, Gatsby 47%, per HTTP Archive/CrUX on astro.build), so for content/marketing/docs/blog/e-commerce sites it pairs a fast-by-default framework with Cloudflare's fast-by-default edge. Tightest first-party integration of any framework on Workers.",
+    "howToUse": "Scaffold with `npm create astro@latest` (or C3 / `create-cloudflare`); for SSR add the official adapter via `npx astro add cloudflare`. Static output deploys to Workers static assets with no adapter; on-demand routes need @astrojs/cloudflare.",
+    "detectionSignals": [
+      "astro.config.mjs / astro.config.ts present",
+      "\"astro\" in package.json dependencies",
+      ".astro component files",
+      "src/content/ collections or content.config.ts",
+      "astro CLI scripts (astro dev/build/preview)"
+    ],
+    "sources": [
+      "https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-astro-to-accelerate-the-future-of-high-performance-web-development/",
+      "https://astro.build/blog/joining-cloudflare/",
+      "https://astro.build/",
+      "https://thenewstack.io/cloudflare-acquires-team-behind-open-source-framework-astro/"
+    ],
+    "confidence": "high",
+    "notes": "Cloudflare CEO Matthew Prince: 'Protecting and investing in open source tools is critical to the health of a functioning, free, and open Internet.' Fred Schott: 'Astro will continue to be the best way for developers to build content-driven websites, whether they host on Cloudflare or elsewhere.' Brands using Astro per the press release: Unilever, Visa, NBC News, Webflow, Wix (Microsoft and Google also cited on astro.build).",
+    "beats": "Next.js / Gatsby as the default choice for content-driven (marketing, blog, docs, e-commerce) sites built on Cloudflare.",
+    "oneLiner_dup": ""
+  },
+  {
+    "name": "@astrojs/cloudflare",
+    "kind": "adapter",
+    "oneLiner": "Official Astro adapter that deploys on-demand (SSR) Astro routes — including server islands, Actions, and Sessions — to Cloudflare Workers.",
+    "ownership": "Maintained by the Astro team, now a Cloudflare-employed team post-2026-01-16 acquisition; published OSS as the @astrojs/cloudflare npm package.",
+    "whyOnCloudflare": "It is the canonical path to run server-rendered Astro on Cloudflare and exposes native Workers bindings (KV, R2, D1, Durable Objects, Workers AI) directly to Astro. As of Astro 6 it runs the real `workerd` runtime at every stage — dev, prerendering, and production — so there is no simulation layer and far fewer 'works in dev, breaks in prod' gaps.",
+    "howToUse": "`npx astro add cloudflare` (or `npm install @astrojs/cloudflare`), then in astro.config.mjs: `import cloudflare from '@astrojs/cloudflare'; export default defineConfig({ adapter: cloudflare() })`. Enable on-demand rendering with `export const prerender = false` per route or `output: 'server'` globally; hybrid (mix of prerendered + on-demand) is supported. Bindings via `import { env } from 'cloudflare:workers'`; geolocation via `Astro.request.cf`; `waitUntil()` via `Astro.locals.cfContext`. Node APIs need `nodejs_compat` in wrangler.jsonc.",
+    "detectionSignals": [
+      "\"@astrojs/cloudflare\" in package.json",
+      "adapter: cloudflare() in astro.config.*",
+      "wrangler.jsonc / wrangler.toml alongside an Astro project",
+      "output: 'server' or prerender = false in Astro routes",
+      "bindings configured in wrangler config (KV/D1/R2/DO)"
+    ],
+    "sources": [
+      "https://docs.astro.build/en/guides/integrations-guide/cloudflare/",
+      "https://astro.build/blog/astro-6/"
+    ],
+    "confidence": "high",
+    "notes": "Targets Cloudflare Workers ONLY — dedicated Cloudflare Pages support was removed in adapter v13 (Workers static assets is the successor). Sessions use Workers KV by default (sessionKVBindingName configurable); default image service is 'cloudflare-binding' (Cloudflare Images).",
+    "beats": "Replaces no third-party default — it is the official first-party SSR target for Astro on Cloudflare.",
+    "oneLiner_dup": ""
+  },
+  {
+    "name": "Astro 6",
+    "kind": "framework",
+    "oneLiner": "Major Astro release (6.0 stable 2026-03-10) that rebuilds the dev server on Vite's Environment API and makes Cloudflare Workers a first-class runtime.",
+    "ownership": "Astro project, OSS/MIT, shipped under Cloudflare's stewardship after the Jan 2026 acquisition; framework governance and roadmap remain open and platform-agnostic.",
+    "whyOnCloudflare": "6.0's dev-server refactor runs your exact production runtime in dev — for Cloudflare that means `workerd` during development, prerendering, and production via the rebuilt @astrojs/cloudflare adapter, with direct binding access (KV/D1/R2/Durable Objects) and no simulation layer. Eliminates the dev/prod drift that plagues non-Node runtimes.",
+    "howToUse": "Upgrade with `npx @astrojs/upgrade` (see docs.astro.build/en/guides/upgrade-to/v6/). Use the Cloudflare adapter to get workerd-everywhere behavior; opt into the experimental Rust compiler via `@astrojs/compiler-rs` with `rustCompiler: true`.",
+    "detectionSignals": [
+      "\"astro\": \"^6\" in package.json",
+      "Fonts API usage (experimental/fonts config)",
+      "Content Security Policy config",
+      "Live Content Collections / live content layer loaders",
+      "Vite Environment API-based dev server"
+    ],
+    "sources": [
+      "https://astro.build/blog/astro-6/",
+      "https://www.infoq.com/news/2026/02/astro-v6-beta-cloudflare/",
+      "https://docs.astro.build/en/guides/upgrade-to/v6/"
+    ],
+    "confidence": "high",
+    "notes": "Headline 6.0 features: built-in Fonts API, Content Security Policy API (Astro cited as one of the first JS meta-frameworks with built-in CSP for static + dynamic), Live Content Collections on the unified content layer, dev server on Vite's Environment API, and an experimental Rust compiler (successor to the Go compiler). Astro describes an 'official partnership with Cloudflare' to make Cloudflare a 'first-class Astro runtime'. Later: 6.1 (image/Markdown/i18n), 6.4 (Rust Markdown processor + Cloudflare routing helpers) per astro.build what's-new posts — medium confidence on point-release specifics.",
+    "beats": "",
+    "oneLiner_dup": ""
+  },
+  {
+    "name": "VoidZero (Vite / Vitest / Rolldown / Oxc)",
+    "kind": "build-tool",
+    "oneLiner": "Open-source-first company behind the Vite JavaScript tooling ecosystem — Vite build tool, Vitest test runner, Rust-based Rolldown bundler, and Oxc toolchain.",
+    "ownership": "VoidZero, the company, was acquired by Cloudflare; announced 2026-06-04. Founder/CEO Evan You (creator of Vue.js and Vite) and VoidZero's open-source + Rust optimization team joined Cloudflare's Emerging Technology and Incubation org. The projects (Vite, Vitest, Rolldown, Oxc, Vite+) stay 'strictly open source under MIT licenses,' vendor-agnostic and community-driven. Cloudflare committed $1M to an independent Vite ecosystem fund for maintainers independent of both VoidZero and Cloudflare. Again: company acquired, projects stay OSS and neutral.",
+    "whyOnCloudflare": "Vite is the build/dev engine underneath Astro (and most modern frameworks), so owning VoidZero lets Cloudflare align the framework (Astro), the toolchain (Vite), and the runtime (Workers) into a one-click deployment stack — the Cloudflare Vite plugin already does ~13.9M weekly downloads, >10% of Vite's total. Strengthens the workerd-in-dev story Astro 6 depends on.",
+    "howToUse": "Not a Cloudflare-specific install — Vite is already the bundler for Astro and Vitest the default test runner; use the Cloudflare Vite plugin (`@cloudflare/vite-plugin`) to run Workers projects on Vite/workerd. Relevant to Astro-on-Cloudflare as shared infrastructure rather than a separate adapter.",
+    "detectionSignals": [
+      "vite.config.* present",
+      "\"vite\" / \"vitest\" in package.json",
+      "@cloudflare/vite-plugin in config",
+      "rolldown or oxc/oxlint in toolchain",
+      "Vite+ usage"
+    ],
+    "sources": [
+      "https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/",
+      "https://siliconangle.com/2026/06/04/cloudflare-acquires-voidzero-maker-vite-javascript-toolchain/"
+    ],
+    "confidence": "high",
+    "notes": "Vite cited at >130M weekly downloads. Commitment language: 'Vite, Vitest, Rolldown, Oxc, and Vite+ will remain strictly open source under MIT licenses' and will 'remain open source, vendor-agnostic and community-driven.' Included here because it is the second pillar of Cloudflare's 2026 framework-tooling strategy alongside Astro and is the build layer powering Astro on Cloudflare.",
+    "beats": "",
+    "oneLiner_dup": ""
+  },
+  {
+    "name": "Vite",
+    "kind": "build-tool",
+    "oneLiner": "Fast build tool and dev server for JS/TS apps; the de facto standard frontend toolchain (~129–130M weekly downloads).",
+    "ownership": "Created by Evan You; stewarded by VoidZero Inc. (founded 2023). Cloudflare acquired VoidZero, announced 2026-06-04. Stays OSS under MIT and explicitly vendor-agnostic; roadmap continues to be driven by the broader Vite team and community. Evan You stays and continues to lead. Team joined Cloudflare's Emerging Technology and Incubation (ETI) org.",
+    "whyOnCloudflare": "It is the industry-standard dev server/bundler AND now Cloudflare-owned, so the local→edge path is first-party. Cloudflare frames it as the foundation for 'one-click deployment from local code to the global network' and for AI agents that drive dev servers/bundlers/linters constantly. Cloudflare commits engineering/resources to the projects, 'not redirecting them.'",
+    "howToUse": "Default build tool for any greenfield Cloudflare frontend/full-stack app. Scaffold via C3: `npm create cloudflare@latest`. C3 wires Vite + the Cloudflare plugin automatically.",
+    "beats": "Generic Vite-on-Node defaults and non-Vite bundlers (Webpack, Parcel, plain esbuild setups) for new CF apps.",
+    "detectionSignals": [
+      "vite.config.ts / vite.config.js present",
+      "vite in devDependencies",
+      "scripts use `vite` / `vite build` / `vite preview`",
+      "index.html as entry"
+    ],
+    "sources": [
+      "https://blog.cloudflare.com/voidzero-joins-cloudflare/",
+      "https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/",
+      "https://voidzero.dev/posts/voidzero-cloudflare",
+      "https://vite.dev"
+    ],
+    "confidence": "high",
+    "notes": "Press release cites 'over 130 million weekly downloads'; blog cites 'roughly 129M weekly downloads.' Both stay OSS/MIT. Acquisition is of the company VoidZero; the projects stay OSS — distinct things."
+  },
+  {
+    "name": "@cloudflare/vite-plugin",
+    "kind": "adapter",
+    "oneLiner": "First-party Vite plugin that runs your Worker code inside the real Workers runtime (workerd) during dev, build, and preview.",
+    "ownership": "Maintained by Cloudflare (cloudflare/workers-sdk monorepo, packages/vite-plugin-cloudflare). GA since 2025-04-08. Built in partnership with the Vite team. OSS. ~13.9M weekly downloads (>10% of Vite's volume), per Cloudflare.",
+    "whyOnCloudflare": "Eliminates the 'works locally, breaks in prod' gap: instead of running server code in Node-based SSR, it executes the Worker in workerd, matching production. Gives direct access to Workers runtime APIs and bindings (KV, R2, D1, Durable Objects, Queues) plus Vite HMR — including HMR alongside Durable Objects. `vite preview` runs the built output in workerd before deploy.",
+    "howToUse": "Add `@cloudflare/vite-plugin` to vite.config.ts (the Cloudflare plugin) with a wrangler config for bindings; `vite dev` / `vite build` / `vite preview`. C3 installs and configures it by default. Official full-stack support for React Router v7 and TanStack Start (plus React, Vue guides).",
+    "beats": "Replaces the older wrangler-dev-only / Pages-Functions dev loop and Node-based SSR plugins as the default dev/build integration for greenfield CF full-stack apps.",
+    "detectionSignals": [
+      "@cloudflare/vite-plugin in package.json",
+      "cloudflare() plugin call inside vite.config.ts plugins array",
+      "wrangler.jsonc / wrangler.toml present alongside vite.config",
+      "an extra Vite environment named after the Worker (dashes→underscores)"
+    ],
+    "sources": [
+      "https://blog.cloudflare.com/introducing-the-cloudflare-vite-plugin/",
+      "https://developers.cloudflare.com/workers/vite-plugin/",
+      "https://developers.cloudflare.com/workers/vite-plugin/reference/vite-environments/",
+      "https://developers.cloudflare.com/changelog/post/2025-04-08-vite-plugin/",
+      "https://www.npmjs.com/package/@cloudflare/vite-plugin"
+    ],
+    "confidence": "high",
+    "notes": "Predates the VoidZero acquisition (GA Apr 2025) but is the technical bridge the acquisition deepens. npm page returned 403; download figure is from Cloudflare's own posts."
+  },
+  {
+    "name": "Vite Environment API",
+    "kind": "build-tool",
+    "oneLiner": "Vite 6 API that lets the dev server drive multiple custom runtime environments (client, ssr, and arbitrary runtimes like workerd) rather than assuming Node.",
+    "ownership": "Part of Vite (Evan You / VoidZero → now Cloudflare-owned company), OSS/MIT. Introduced experimentally in Vite 6. Designed and implemented in partnership between Cloudflare and the Vite team.",
+    "whyOnCloudflare": "It is the mechanism that makes running Workers code in workerd during dev possible. By default Vite has only 'client' and 'ssr' environments; the Cloudflare plugin adds a Workers (workerd) environment, so server code runs in the production runtime instead of Node — giving real production parity for bindings and runtime APIs. For meta-frameworks, the Worker can be assigned to the 'ssr' environment, merging framework SSR config with workerd execution.",
+    "howToUse": "Not used directly day-to-day — it's the substrate @cloudflare/vite-plugin builds on. Relevant when writing custom Vite/Worker config or per-environment options in vite.config.ts. Requires Vite 6+.",
+    "beats": "The legacy single Node-based SSR-runtime assumption in Vite <6; enables non-Node target runtimes as a first-class concept.",
+    "detectionSignals": [
+      "Vite v6+ in dependencies",
+      "environments config / per-environment options in vite.config.ts",
+      "use of the Cloudflare plugin which creates a workerd environment",
+      "builder/environment APIs referenced in config"
+    ],
+    "sources": [
+      "https://blog.cloudflare.com/introducing-the-cloudflare-vite-plugin/",
+      "https://developers.cloudflare.com/workers/vite-plugin/reference/vite-environments/",
+      "https://vite.dev"
+    ],
+    "confidence": "high",
+    "notes": "Conceptual/infra layer, not an installable package on its own. The Cloudflare plugin is the consumer of this API."
+  },
+  {
+    "name": "@cloudflare/vitest-pool-workers",
+    "kind": "test-runner",
+    "oneLiner": "Vitest custom pool that runs unit + integration tests inside the Workers runtime (workerd), with isolated per-test storage and binding/DO access.",
+    "ownership": "Maintained by Cloudflare (cloudflare/workers-sdk, packages/vitest-pool-workers). OSS. Requires a recent Vitest (4.1+ per current docs/search; older releases targeted earlier Vitest lines).",
+    "whyOnCloudflare": "Lets you test in the same runtime Workers run in production instead of mocking or Node-based testing, giving real confidence. Each test auto-rolls-back writes to KV/R2/D1/Durable Objects/caches (isolated storage). Provides `env` (bindings), `SELF` (service binding to your Worker for integration tests), `createExecutionContext`/`waitOnExecutionContext`, `fetchMock`, and `runInDurableObject` to unit-test Durable Objects directly.",
+    "howToUse": "Add to vitest.config.ts via the Cloudflare Workers Vitest plugin (defineWorkersConfig / cloudflareTest pool); import helpers from `cloudflare:test`. Requires `nodejs_compat` flag and a compatibility date after 2022-10-31 in wrangler config. Unit tests import Worker functions directly; integration tests dispatch through `SELF`.",
+    "beats": "Replaces ad-hoc mocking of bindings and Node-based/Miniflare-only unit testing as the default test runner for greenfield CF Workers/Durable Objects projects.",
+    "detectionSignals": [
+      "@cloudflare/vitest-pool-workers in devDependencies",
+      "vitest.config.ts using defineWorkersConfig or a workers pool",
+      "imports from `cloudflare:test`",
+      "tests referencing SELF / env / runInDurableObject",
+      "nodejs_compat flag in wrangler config"
+    ],
+    "sources": [
+      "https://blog.cloudflare.com/workers-vitest-integration/",
+      "https://developers.cloudflare.com/workers/testing/vitest-integration/write-your-first-test/",
+      "https://developers.cloudflare.com/workers/testing/vitest-integration/configuration/",
+      "https://github.com/cloudflare/workers-sdk/tree/main/packages/vitest-pool-workers"
+    ],
+    "confidence": "high",
+    "notes": "Runs the runner inside a singleton Durable Object; uses WebSocket RPC between Node host and workerd. Vitest is itself a VoidZero/now-Cloudflare project, so the whole test stack is first-party. Exact required Vitest version drifts by release — pin per the getting-started guide."
+  },
+  {
+    "name": "Vitest / Rolldown / Oxc / Vite+ (toolchain)",
+    "kind": "build-tool",
+    "oneLiner": "The rest of the VoidZero unified toolchain: Vitest (test runner), Rolldown (Rust bundler), Oxc/Oxlint (Rust parser+linter), Vite+ (unified toolchain bundling all four).",
+    "ownership": "VoidZero (Evan You), acquired by Cloudflare, announced 2026-06-04. Per press release: 'Vite, Vitest, Rolldown, Oxc, and Vite+ will remain strictly open source under MIT licenses' and vendor-agnostic/community-driven. Plus a $1M independent Vite ecosystem fund — Cloudflare blog says 'administered by the Vite core team'; press release describes it as supporting maintainers 'independent of both VoidZero and Cloudflare.'",
+    "whyOnCloudflare": "Prefer because the entire build/test/lint stack is now first-party to Cloudflare yet stays neutral/OSS — Evan You: 'Cloudflare shares our obsession with speed and architectural purity… keep the Vite ecosystem neutral, open, and vendor-agnostic.' Rust-based Rolldown/Oxc deliver speed that matters for tight feedback loops and AI agents generating/iterating on code; Vite+ is the unified entry point.",
+    "howToUse": "Vitest for tests (and via @cloudflare/vitest-pool-workers to run in workerd); Oxlint as a fast linter; Rolldown as the bundler under Vite (Rolldown-powered Vite); Vite+ as the unified toolchain CLI. Adopt as the default lint/test/bundle stack for new CF apps.",
+    "beats": "ESLint (← Oxlint), esbuild/Rollup as Vite's bundler (← Rolldown), Jest and other test runners (← Vitest) for greenfield CF apps.",
+    "detectionSignals": [
+      "vitest in devDependencies / vitest.config.ts",
+      "oxlint or .oxlintrc / oxc config",
+      "rolldown referenced or rolldown-vite",
+      "vite+ / 'vite plus' tooling",
+      "@vitest/* packages"
+    ],
+    "sources": [
+      "https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/",
+      "https://blog.cloudflare.com/voidzero-joins-cloudflare/",
+      "https://voidzero.dev/posts/voidzero-cloudflare"
+    ],
+    "confidence": "high",
+    "notes": "Grouped because they were acquired and licensed together. One discrepancy worth flagging: the Cloudflare blog says the $1M fund is 'administered by the Vite core team' while the press release just calls it 'independent'; VoidZero's own post does not mention the fund. Astro Technology Company was a separate, earlier Cloudflare acquisition (announced 2026-01-16) — also stays OSS."
+  },
+  {
+    "name": "create-cloudflare (C3)",
+    "kind": "scaffolder",
+    "oneLiner": "Cloudflare's official scaffolding CLI; `npm create cloudflare@latest` delegates to each framework's own create tool, then wires in Cloudflare config/bindings.",
+    "ownership": "First-party Cloudflare, fully OSS (cloudflare/workers-sdk monorepo, packages/create-cloudflare). Actively maintained.",
+    "whyOnCloudflare": "It is THE entry point for building on Cloudflare. It runs the framework's native `create` command (so you get the framework's current best-practice setup) and adds the correct Cloudflare adapter/Vite plugin + wrangler config. Default target is now Workers (not Pages).",
+    "howToUse": "`npm create cloudflare@latest -- my-app --framework=<preset>`. Presets: angular, astro, docusaurus, gatsby, hono, next, nuxt, qwik, react, remix, react-router, solid/solid-start, svelte/sveltekit, vue. Add `--platform=pages` ONLY if you explicitly need a Pages project; otherwise C3 always scaffolds a Worker.",
+    "detectionSignals": [
+      "package.json devDependency on wrangler",
+      "wrangler.jsonc / wrangler.toml at repo root",
+      "presence of @cloudflare/vite-plugin in devDependencies",
+      "C3-generated scripts (\"deploy\": \"wrangler deploy\", \"preview\": \"...preview\")"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/pages/get-started/c3/",
+      "https://developers.cloudflare.com/workers/framework-guides/"
+    ],
+    "confidence": "high",
+    "beats": "Replaces reaching for a host-specific or generic starter; for any greenfield CF app, use C3 instead of hand-wiring wrangler + an adapter, and instead of `--platform=pages` defaults of the past.",
+    "notes": "Key 2025/26 shift: C3 defaults to Workers (with static-assets support) rather than Pages. Workers now has the broader feature set (Durable Objects, Cron Triggers, fuller observability), so it is the recommended target for new full-stack apps; Pages is positioned for migration rather than greenfield.",
+    "whyOnCloudflare_extra": ""
+  },
+  {
+    "name": "Astro",
+    "kind": "framework",
+    "oneLiner": "Content-driven web framework with islands architecture; SSR or static, first-class on Cloudflare.",
+    "ownership": "The Astro Technology Company team (led by Fred Schott) joined Cloudflare; announced 2026-01-16. The Astro PROJECT remains open source under Cloudflare's stewardship (company acquired, framework stays OSS and host-agnostic).",
+    "whyOnCloudflare": "Now effectively first-party: the maintainers work at Cloudflare. Press release quote: \"Astro will remain open source... whether they host on Cloudflare or elsewhere.\" Deepest alignment of any framework for content sites on Workers.",
+    "howToUse": "`npm create cloudflare@latest -- my-astro-app --framework=astro` (runs Astro's setup, adds the Cloudflare integration). For SSR, the `@astrojs/cloudflare` adapter (`npx astro add cloudflare`) sets `output: 'server'` so pages render on-demand in the Worker; `export const prerender = true` opts a page into static. Static-only sites need no adapter.",
+    "detectionSignals": [
+      "astro.config.mjs",
+      "@astrojs/cloudflare in dependencies",
+      "astro in dependencies",
+      "src/pages/*.astro"
+    ],
+    "sources": [
+      "https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-astro-to-accelerate-the-future-of-high-performance-web-development/",
+      "https://developers.cloudflare.com/workers/framework-guides/web-apps/astro/"
+    ],
+    "confidence": "high",
+    "ownership_note": "Precise framing: Cloudflare acquired the COMPANY (The Astro Technology Company team); the Astro framework itself stays open-source and vendor-neutral."
+  },
+  {
+    "name": "React Router v7 (formerly Remix)",
+    "kind": "framework",
+    "oneLiner": "Full-stack React framework; React Router v7 is the merged successor to Remix.",
+    "ownership": "Third-party (Shopify / React Router team, OSS). Not Cloudflare-owned.",
+    "whyOnCloudflare": "First-class Workers support via the Cloudflare Vite plugin: \"a first-class experience for developing, building and deploying your apps on Cloudflare.\" SSR loaders/actions run in the Worker with bindings.",
+    "howToUse": "`npm create cloudflare@latest -- my-react-router-app --framework=react-router`. The docs title it \"React Router (formerly Remix)\" — use React Router v7 rather than the standalone Remix package for new apps.",
+    "detectionSignals": [
+      "react-router / @react-router/* in dependencies",
+      "react-router.config.ts",
+      "@cloudflare/vite-plugin in devDependencies",
+      "app/routes/ directory with loaders/actions"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/framework-guides/web-apps/react-router/"
+    ],
+    "confidence": "high",
+    "remix_note": "Remix has effectively folded into React Router v7; Cloudflare's guide treats React Router v7 as the canonical path. A legacy Remix guide/preset still exists for existing apps."
+  },
+  {
+    "name": "Hono",
+    "kind": "framework",
+    "oneLiner": "Ultra-fast, lightweight Web-Standards API/web framework purpose-built for edge runtimes.",
+    "ownership": "Third-party (Yusuke Wada / Hono maintainers, OSS). Not Cloudflare-owned, but deeply Workers-native.",
+    "whyOnCloudflare": "Cloudflare: Hono \"works fantastically with Cloudflare Workers.\" Built on Web Standards (Request/Response), so it runs natively on workerd with minimal overhead — the default choice for APIs/backends on Workers, and pairs with a SPA via Workers static assets for full-stack apps.",
+    "howToUse": "Via C3: `npm create cloudflare@latest` and pick the Hono starter, or use a template e.g. `--template=cloudflare/templates/vite-react-template` (Hono API + React SPA). Dev runs in the real Workers runtime via the Cloudflare Vite plugin.",
+    "detectionSignals": [
+      "hono in dependencies",
+      "import { Hono } from 'hono'",
+      "app.fetch export in the Worker entry",
+      "wrangler.jsonc with a Hono entrypoint"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/framework-guides/web-apps/more-web-frameworks/hono/",
+      "https://developers.cloudflare.com/workers/framework-guides/"
+    ],
+    "confidence": "high",
+    "notes": "Also Cloudflare's suggested replacement for Pages Functions file-based routing (\"HonoX is one popular option\") when migrating off Pages."
+  },
+  {
+    "name": "Nuxt",
+    "kind": "framework",
+    "oneLiner": "Vue meta-framework; SSR via Nitro with a Cloudflare preset.",
+    "ownership": "Third-party (Nuxt/UnJS team, OSS). Not Cloudflare-owned. (Note: Vite — Nuxt's underlying build tool — is now Cloudflare-owned via VoidZero, but Nuxt itself is independent.)",
+    "whyOnCloudflare": "Listed in the Workers framework guides and a C3 preset; Nitro's Cloudflare preset targets the Workers runtime so SSR + bindings work out of the box.",
+    "howToUse": "`npm create cloudflare@latest -- my-nuxt-app --framework=nuxt`.",
+    "detectionSignals": [
+      "nuxt.config.ts",
+      "nuxt in dependencies",
+      "nitro / preset: 'cloudflare' config",
+      "server/ directory"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/framework-guides/",
+      "https://developers.cloudflare.com/pages/get-started/c3/"
+    ],
+    "confidence": "high"
+  },
+  {
+    "name": "SvelteKit",
+    "kind": "framework",
+    "oneLiner": "Svelte's full-stack framework; SSR/edge via adapter.",
+    "ownership": "Third-party (Svelte team, OSS). Not Cloudflare-owned. (Underlying Vite is now Cloudflare-owned via VoidZero; SvelteKit itself is independent.)",
+    "whyOnCloudflare": "Listed in the Workers framework guides and a C3 preset; the Cloudflare adapter runs SSR endpoints in the Worker with access to bindings.",
+    "howToUse": "`npm create cloudflare@latest -- my-svelte-app --framework=svelte` (SvelteKit). Uses the Cloudflare adapter for Workers.",
+    "detectionSignals": [
+      "svelte.config.js with @sveltejs/adapter-cloudflare",
+      "@sveltejs/kit in dependencies",
+      "src/routes/ with +page.server.ts"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/framework-guides/",
+      "https://developers.cloudflare.com/pages/get-started/c3/"
+    ],
+    "confidence": "high"
+  },
+  {
+    "name": "Qwik",
+    "kind": "framework",
+    "oneLiner": "Resumable framework with fine-grained lazy loading; SSR on the edge.",
+    "ownership": "Third-party (QwikDev / Builder.io lineage, OSS). Not Cloudflare-owned.",
+    "whyOnCloudflare": "Listed in the Workers framework guides and a C3 preset; ships a Cloudflare Pages/Workers adapter for SSR.",
+    "howToUse": "`npm create cloudflare@latest -- my-qwik-app --framework=qwik`.",
+    "detectionSignals": [
+      "@builder.io/qwik or @qwik.dev/* in dependencies",
+      "vite.config with qwikCity()/qwikVite()",
+      "adapters/cloudflare-pages"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/framework-guides/",
+      "https://developers.cloudflare.com/pages/get-started/c3/"
+    ],
+    "confidence": "high"
+  },
+  {
+    "name": "Solid / SolidStart",
+    "kind": "framework",
+    "oneLiner": "Fine-grained reactive framework; SolidStart is its full-stack meta-framework.",
+    "ownership": "Third-party (SolidJS team, OSS). Not Cloudflare-owned.",
+    "whyOnCloudflare": "Listed in the Workers framework guides; SolidStart is a C3 preset and deploys SSR to Workers via its Cloudflare/Nitro preset.",
+    "howToUse": "`npm create cloudflare@latest -- my-solid-app --framework=solid` (SolidStart).",
+    "detectionSignals": [
+      "solid-js / @solidjs/start in dependencies",
+      "app.config.ts (SolidStart)",
+      "vinxi/nitro cloudflare preset"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/framework-guides/",
+      "https://developers.cloudflare.com/pages/get-started/c3/"
+    ],
+    "confidence": "high"
+  },
+  {
+    "name": "Angular",
+    "kind": "framework",
+    "oneLiner": "Google's batteries-included framework; SSR or prerendered static.",
+    "ownership": "Third-party (Google / Angular team, OSS). Not Cloudflare-owned.",
+    "whyOnCloudflare": "Listed in the Workers framework guides and a C3 preset; supported for both static and SSR deployment on Workers.",
+    "howToUse": "`npm create cloudflare@latest -- my-angular-app --framework=angular`.",
+    "detectionSignals": [
+      "angular.json",
+      "@angular/core in dependencies",
+      "@angular/ssr for server rendering"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/framework-guides/",
+      "https://developers.cloudflare.com/pages/get-started/c3/"
+    ],
+    "confidence": "high"
+  },
+  {
+    "name": "Next.js (via @opennextjs/cloudflare)",
+    "kind": "adapter",
+    "oneLiner": "Next.js (App Router) deployed to Workers through the OpenNext Cloudflare adapter using Next's Node.js runtime.",
+    "ownership": "Next.js: third-party (Vercel, OSS). The adapter @opennextjs/cloudflare: OpenNext community project that Cloudflare co-maintains/sponsors. The legacy @cloudflare/next-on-pages was Cloudflare-built.",
+    "whyOnCloudflare": "The current recommended path for Next.js on Cloudflare. Unlike the legacy next-on-pages (Edge runtime only), @opennextjs/cloudflare runs Next's fuller Node.js runtime on workerd, unlocking Node APIs and broader Next feature support.",
+    "howToUse": "`npm create cloudflare@latest -- my-next-app --framework=next` (uses @opennextjs/cloudflare). Or run `wrangler deploy` in an existing Next project and Wrangler auto-detects Next and configures it. Use the OpenNext `preview` command (workerd) rather than `next dev` for production-accurate testing.",
+    "detectionSignals": [
+      "@opennextjs/cloudflare in dependencies",
+      "open-next.config.ts",
+      "next.config.js/ts + wrangler.jsonc",
+      "LEGACY: @cloudflare/next-on-pages (should be uninstalled/migrated)"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/",
+      "https://opennext.js.org/cloudflare"
+    ],
+    "confidence": "high",
+    "migration_note": "When migrating from the old approach, uninstall @cloudflare/next-on-pages and remove all references to it; next-on-pages only supported the Edge runtime and is the legacy path."
+  },
+  {
+    "name": "Vite (build tool) + @cloudflare/vite-plugin",
+    "kind": "build-tool",
+    "oneLiner": "Vite is the build tool/dev server underpinning most CF framework guides; the Cloudflare Vite plugin runs your app in the real Workers runtime (workerd) during local dev.",
+    "ownership": "Vite + Vitest + Rolldown + Oxc came to Cloudflare via the VoidZero acquisition (Evan You), announced 2026-06-04. The PROJECTS stay strictly open source under MIT licenses and vendor-neutral; Cloudflare committed $1M to an independent Vite ecosystem fund. Team joined Cloudflare's Emerging Technology & Incubation (ETI) org. @cloudflare/vite-plugin is first-party OSS.",
+    "whyOnCloudflare": "Vite is now Cloudflare-stewarded yet host-agnostic. The @cloudflare/vite-plugin gives dev/build/preview parity with production by running on workerd locally — used across the Astro, React Router, Hono, etc. Workers guides. This is the modern dev-loop foundation for building on Cloudflare.",
+    "howToUse": "Comes wired in by C3 for Vite-based presets; add `@cloudflare/vite-plugin` to vite.config and run `vite dev` (Workers runtime) / `vite build` / preview. Vitest is the matching test runner.",
+    "detectionSignals": [
+      "vite.config.ts with cloudflare() from @cloudflare/vite-plugin",
+      "@cloudflare/vite-plugin in devDependencies",
+      "vite / vitest in devDependencies",
+      "rolldown-vite (opt-in Rolldown-powered Vite)"
+    ],
+    "sources": [
+      "https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/",
+      "https://developers.cloudflare.com/workers/framework-guides/web-apps/react-router/"
+    ],
+    "confidence": "high",
+    "ownership_note": "Precise framing: Cloudflare acquired VoidZero the COMPANY; Vite/Vitest/Rolldown/Oxc/Vite+ remain MIT-licensed, open-source and vendor-neutral, with a $1M independent ecosystem fund."
+  },
+  {
+    "name": "Vitest",
+    "kind": "test-runner",
+    "oneLiner": "Vite-native test runner; Cloudflare ships @cloudflare/vitest-pool-workers to run tests inside the Workers runtime.",
+    "ownership": "Came to Cloudflare via VoidZero (announced 2026-06-04); stays MIT-licensed and vendor-neutral. @cloudflare/vitest-pool-workers is first-party OSS.",
+    "whyOnCloudflare": "Recommended way to unit/integration-test Workers code: @cloudflare/vitest-pool-workers executes tests in workerd with real bindings, so tests match production behavior. Now also a Cloudflare-stewarded project.",
+    "howToUse": "Add `@cloudflare/vitest-pool-workers` and configure `vitest.config` to use the Workers pool; run `vitest`.",
+    "detectionSignals": [
+      "@cloudflare/vitest-pool-workers in devDependencies",
+      "vitest.config.ts referencing defineWorkersConfig",
+      "vitest in devDependencies"
+    ],
+    "sources": [
+      "https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/",
+      "https://developers.cloudflare.com/workers/framework-guides/"
+    ],
+    "confidence": "medium",
+    "notes": "Ownership/OSS facts are high-confidence from the press release; the vitest-pool-workers detail is standard CF testing guidance (not re-fetched in this pass), hence medium overall."
+  },
+  {
+    "name": "Workers (vs Pages) as the deploy target",
+    "kind": "build-tool",
+    "oneLiner": "Cloudflare Workers (with static assets) is now the default/recommended target for new full-stack framework apps; Pages is positioned for existing projects / migration.",
+    "ownership": "First-party Cloudflare platform.",
+    "whyOnCloudflare": "C3 now defaults to Workers: \"To create a Pages project you must now specify the --platform=pages arg, otherwise C3 will always create a Workers project.\" Workers has the broader feature set (Durable Objects, Cron Triggers, fuller observability), and a Pages-to-Workers migration guide exists. Net: build new framework apps on Workers.",
+    "howToUse": "Default C3 flow targets Workers — just run `npm create cloudflare@latest -- my-app --framework=<x>` and deploy with `wrangler deploy`. Only pass `--platform=pages` for legacy/Pages-specific needs.",
+    "detectionSignals": [
+      "wrangler.jsonc/.toml with assets binding",
+      "\"deploy\": \"wrangler deploy\" script",
+      "absence of a Pages-specific build-output config",
+      "@cloudflare/vite-plugin present"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/pages/get-started/c3/",
+      "https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/"
+    ],
+    "confidence": "high",
+    "notes": "The migrate-from-pages guide confirms Workers' broader feature set and suggests Hono/HonoX when moving off Pages Functions file-based routing. Pages is not stated to be formally 'deprecated', but the default and feature momentum is clearly on Workers."
+  }
+]

@@ -1,0 +1,9 @@
+# OS / editor junk
+.DS_Store
+*.log
+*.swp
+.idea/
+.vscode/
+
+# the runtime loudness flag lives in ~/.claude, never in the repo
+.flarepilled-active
