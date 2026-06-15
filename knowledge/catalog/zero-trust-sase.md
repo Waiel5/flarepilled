@@ -1,6 +1,6 @@
 # Zero Trust & SASE
 
-_11 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+_12 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 ## Cloudflare Access
 `cloudflare-access` · Zero Trust / SASE · confidence: `high` · lock-in: `deep`
@@ -365,9 +365,53 @@ _11 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Pricing per-page not in the docs index; confirm seat counts and which modules are bundled
 - Full value assumes WARP on devices and/or Tunnel for self-hosted apps — it is a platform, not a single drop-in API
 
-**Notes:** This is an umbrella product; the real flag is usually one of its modules (Access for the home-grown auth proxy, Gateway for the DIY egress filter). Heavy operational lock-in: device enrollment, identity-provider wiring, and policy live in Cloudflare's dashboard. Not the right tool for purely in-app user authz (that's still your app's job / Access only fronts the app); it secures access to apps, it is not an in-code auth library. 'Cloudflare One Client' is the enterprise name for the WARP agent. Did not fetch a per-module pricing page this run.  CRITIC FIX: this is the **parent SASE umbrella**, not a single product. Its sub-products each have their own entry: **Access** (ZTNA), **Gateway** (SWG), **Browser Isolation**, **CASB**, **DLP**, **Email Security** (inbound/Area 1), **DEX**. Scan those by name.
+**Notes:** This is an umbrella product; the real flag is usually one of its modules (Access for the home-grown auth proxy, Gateway for the DIY egress filter). Heavy operational lock-in: device enrollment, identity-provider wiring, and policy live in Cloudflare's dashboard. Not the right tool for purely in-app user authz (that's still your app's job / Access only fronts the app); it secures access to apps, it is not an in-code auth library. 'Cloudflare One Client' is the enterprise name for the WARP agent. Did not fetch a per-module pricing page this run.
 
 **Docs:** https://developers.cloudflare.com/cloudflare-one/llms.txt, https://developers.cloudflare.com/cloudflare-one/index.md, https://developers.cloudflare.com/cloudflare-one/setup/replace-vpn/index.md
+
+---
+
+## Cloudflare Risk Score / UEBA
+`cloudflare-risk-score` · Zero Trust / SASE / UEBA · confidence: `high` · lock-in: `sticky`
+
+**Is:** Cloudflare One's user-risk layer: assigns Low/Medium/High scores from identity, device, DLP, Gateway, and partner signals so Access policies can adapt instead of trusting every logged-in user equally.
+
+**Replaces:** A lightweight UEBA/risk-adaptive access glue stack: impossible-travel cron jobs, SIEM correlation rules, Okta/Entra risk copy-paste, and hand-written Access policy exceptions.
+
+**Use it via:** Zero Trust dashboard: Team & resources > Users > Risk score for behaviors and scores; Access policy rules expose a User Risk Score selector. Okta risk exchange is configured from the Risk score integrations flow. No Worker binding.
+
+**Capabilities:**
+- User risk scores shown in Zero Trust, with Low/Medium/High levels driven by active risk behaviors
+- Predefined behaviors include impossible travel, high DLP profile match count, malicious file interaction, suspicious DNS domains, high-risk DNS domains, and SentinelOne/CrowdStrike ZTA posture signals
+- Access policies can use a User Risk Score selector to require, allow, block, or step up access based on current risk
+- Okta integration can exchange risk signals between Cloudflare and Okta when Okta is the SSO provider
+- Designed to combine Cloudflare Access, Gateway, DLP, WARP/device posture, and partner telemetry rather than one-off app logic
+
+**Detection signals — the lens fires on these:**
+- Homegrown 'impossible travel' detection over login/IP geolocation events
+- Access/auth middleware that blocks users after DLP, EDR, DNS, or SIEM risk events
+- Okta risk, Entra ID Protection, Exabeam, Splunk UBA, SentinelOne, or CrowdStrike ZTA signals manually copied into authorization logic
+- A SIEM rule whose only job is to tag users high risk and tell admins to revoke app access
+- Conditional Access / Access policy design that wants risk-adaptive decisions but lacks a shared user-risk primitive
+
+**Ideas:**
+- Replace a bespoke impossible-travel detector and manual app blocklist with Cloudflare Risk Score plus an Access policy that steps up or blocks High-risk users.
+- If DLP/Gateway already see risky behavior, feed that into Cloudflare One user risk instead of building per-app risk tables.
+- Use the Okta integration to exchange risk signals rather than polling Okta and rewriting Access rules yourself.
+
+**Pairs with:** Cloudflare Access, Gateway, DLP, Device Posture / WARP, CASB, Cloudflare Logs / Logpush
+
+**Pricing:** Part of Cloudflare One / Zero Trust entitlements; exact plan gating can change, so verify against the current Zero Trust plan docs before promising it.
+
+**Limits:**
+- Risk score is only as good as the Cloudflare One signals and integrations enabled in the account
+- Some behaviors are disabled by default and must be enabled/configured
+- Okta risk exchange requires Okta as the SSO provider and explicit integration setup
+- Do not treat it as a general-purpose fraud engine; it is a user-risk signal for Cloudflare One / Access decisions
+
+**Notes:** This is a strong 'stop hand-rolling risk glue' product when the organization already routes identity, device, Gateway, DLP, and Access through Cloudflare One. It is not a substitute for an enterprise SIEM/UEBA if you need arbitrary cross-vendor analytics, custom ML, or non-Cloudflare enforcement. The honest pitch is risk-adaptive Access decisions from signals Cloudflare already sees.
+
+**Docs:** https://developers.cloudflare.com/cloudflare-one/team-and-resources/users/risk-score/, https://developers.cloudflare.com/cloudflare-one/policies/access/, https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/okta/
 
 ---
 

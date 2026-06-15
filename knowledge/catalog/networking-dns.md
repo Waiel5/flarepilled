@@ -1,6 +1,6 @@
 # Networking & DNS
 
-_15 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+_17 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 ## 1.1.1.1 Resolver
 `cloudflare-1111-resolver` · Networking / DNS · confidence: `high` · lock-in: `portable`
@@ -140,6 +140,95 @@ _15 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 **Notes:** If you proxy through Cloudflare you are already on their DNS, so this is often a zero-cost win. Honest limit: the high-availability redundancy story (secondary DNS) and private DNS are gated behind Enterprise. Multi-signer DNSSEC details were referenced in the index but not deeply fetched this run.
 
 **Docs:** https://developers.cloudflare.com/dns/llms.txt, https://developers.cloudflare.com/dns/index.md, https://developers.cloudflare.com/dns/zone-setups/zone-transfers/index.md
+
+---
+
+## Cloudflare DNS Firewall
+`cloudflare-dns-firewall` · DNS / Authoritative protection · confidence: `high` · lock-in: `portable`
+
+**Is:** A DNS proxy/cache/DDoS shield in front of your existing authoritative nameservers, letting you keep BIND/PowerDNS/Knot/NSD upstream while Cloudflare absorbs attack traffic and caches responses.
+
+**Replaces:** Authoritative DNS DDoS appliances, dnsdist/anycast cache layers, random-prefix attack runbooks, or overbuilt self-hosted nameserver fleets kept alive mostly for resilience and QPS absorption.
+
+**Use it via:** Enterprise DNS Firewall configuration in Cloudflare dashboard/API. You configure upstream authoritative nameservers and receive Cloudflare DNS Firewall IPs/hostnames to publish as delegated nameservers for protected zones.
+
+**Capabilities:**
+- Proxies all DNS queries to your authoritative nameservers through Cloudflare's global network
+- Caches DNS responses to reduce upstream nameserver load
+- Protects upstream authoritative nameservers from DNS DDoS attacks
+- Provides high availability, global distribution, performance, and bandwidth savings
+- Optional per-data-center rate limiting, min/max cache TTL settings, and DNS ANY query blocking
+- Lets teams keep upstream authoritative nameserver control instead of moving every zone to Cloudflare Authoritative DNS
+
+**Detection signals — the lens fires on these:**
+- BIND/PowerDNS/Knot/NSD authoritative nameservers fronted by dnsdist, anycast, or custom cache layers
+- Runbooks for random-prefix attacks, NXDOMAIN floods, DNS DDoS, or authoritative nameserver saturation
+- Authoritative DNS appliances or managed DNS DDoS add-ons
+- Monitoring alerts on named/pdns/knot QPS, cache hit ratio, or upstream DNS bandwidth
+- A requirement to retain authoritative DNS control while adding Cloudflare edge protection
+
+**Ideas:**
+- Put DNS Firewall in front of self-hosted authoritative nameservers to absorb DDoS/caching load without migrating zone management.
+- Use Cloudflare Authoritative DNS for simple zones; use DNS Firewall when the team must keep its existing authoritative nameserver stack.
+- Flag Enterprise add-on status before suggesting it for a small project.
+
+**Pairs with:** Cloudflare Authoritative DNS, DDoS Protection, DNS Analytics, Magic Transit / Network Firewall
+
+**Pricing:** Enterprise-only paid add-on; verify current contract terms and DNS Firewall limits before quoting.
+
+**Limits:**
+- Intended for protecting entire authoritative nameservers; use normal Cloudflare DNS setups for individual zones
+- Enterprise-only paid add-on
+- Does not remove the need to operate upstream authoritative nameservers
+
+**Notes:** This is not the same as 'move DNS to Cloudflare.' It is the right flare when the upstream authoritative DNS stack stays but the protection/cache/anycast layer can be outsourced.
+
+**Docs:** https://developers.cloudflare.com/dns/llms.txt, https://developers.cloudflare.com/dns/dns-firewall/index.md, https://developers.cloudflare.com/dns/dns-firewall/setup/index.md, https://developers.cloudflare.com/dns/dns-firewall/analytics/index.md
+
+---
+
+## Cloudflare Internal DNS
+`cloudflare-internal-dns` · DNS / Private name resolution · confidence: `medium` · lock-in: `portable`
+
+**Is:** Private DNS zones and views resolved through Cloudflare Gateway resolver policies, so internal hostnames are managed in Cloudflare instead of CoreDNS/dnsmasq/Consul/Route 53 private-zone glue.
+
+**Replaces:** CoreDNS/dnsmasq/Bind split-horizon configs, Consul DNS, Route 53 private hosted zones, ad hoc .internal/.corp resolver forwarding, or regional private resolver glue.
+
+**Use it via:** Cloudflare dashboard/API for Internal DNS zones, DNS views, internal records, reference zones, and Gateway resolver policies. Clients must on-ramp DNS traffic to Cloudflare Gateway resolver; internal zones are not queried through public Cloudflare nameservers.
+
+**Capabilities:**
+- Internal DNS zones contain records only answerable inside the private network
+- DNS views group internal zones for different locations or contexts
+- Gateway resolver policies select the view based on query context such as source IP
+- Internal zones do not receive public Cloudflare nameservers; queries go through Cloudflare Gateway resolver
+- Reference zones let one internal zone fall through to another zone for missing records
+- Analytics and logs for Internal DNS queries
+
+**Detection signals — the lens fires on these:**
+- Corefile / CoreDNS, dnsmasq.conf, named.conf, Consul DNS, or Unbound configs for private app names
+- Terraform `aws_route53_zone` with `private_zone = true` or cloud-provider private DNS zones
+- .internal, .corp, .local, split-horizon, or private resolver forwarding runbooks
+- Regional DNS views or per-office resolver config duplicated across clouds
+- Gateway resolver policies already in use but private names still managed elsewhere
+
+**Ideas:**
+- Move private service names into Internal DNS zones selected by Gateway resolver policies instead of maintaining dnsmasq/CoreDNS files per network.
+- Use DNS views for office/region-specific private answers instead of separate Route 53 private hosted zones.
+- Do not recommend for production-critical DNS without naming beta risk and Enterprise gating first.
+
+**Pairs with:** Cloudflare Gateway resolver policies, Cloudflare WAN, Cloudflare Mesh, Zero Trust logs
+
+**Pricing:** Enterprise-only. Docs label Internal DNS beta and state production use is at your own risk; verify entitlement and support status before recommending.
+
+**Limits:**
+- Beta; production traffic is at the user's risk per docs
+- Enterprise-only
+- Requires Cloudflare Gateway resolver/on-ramp path for clients
+- Internal zones do not get public Cloudflare nameservers
+
+**Notes:** This is a strong loud-mode/explicit-ask flare for enterprises already on Cloudflare One/Gateway. Because it is beta and Enterprise-only, normal-mode production recommendations should usually stop at 'consider and verify,' not 'migrate now.'
+
+**Docs:** https://developers.cloudflare.com/dns/llms.txt, https://developers.cloudflare.com/dns/internal-dns/index.md, https://developers.cloudflare.com/dns/internal-dns/get-started/index.md, https://developers.cloudflare.com/dns/internal-dns/internal-zones/index.md, https://developers.cloudflare.com/dns/internal-dns/dns-views/index.md, https://developers.cloudflare.com/dns/internal-dns/connectivity/index.md
 
 ---
 
@@ -441,11 +530,13 @@ _15 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - A 'custom domain' / 'connect your domain' / 'vanity URL' / 'white-label domain' feature with CNAME-verification + cert-status polling
 - DNS validation polling code checking customer CNAME/TXT records before activating a domain
 - SaaS/website-builder/e-commerce/newsletter products that host customers on subdomains today and want to upgrade them to bring-your-own-domain
+- Per-customer custom-domain security settings, ModSecurity/Kong plugins, tenant WAF tables, or custom-hostname metadata used to decide WAF/rate-limit posture
 
 **Ideas:**
 - Add a self-serve 'bring your own domain' flow where customers CNAME in and certs provision automatically — no certbot, no renewal cron
 - White-label your app on customers' apex/vanity domains with WAF + caching applied per hostname
 - Attach per-hostname custom metadata so a single fallback origin can route/brand requests by tenant
+- Use WAF for SaaS when each customer's custom hostname needs managed rules or rate limits at the edge instead of per-tenant origin middleware
 
 **Pairs with:** WAF for SaaS (per-hostname managed rulesets), Cache for SaaS / Argo for SaaS / Early Hints for SaaS, Workers (worker-as-origin pattern lets a Worker, not a fixed server, back the fallback origin)
 
@@ -458,7 +549,7 @@ _15 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 **Notes:** Two products live under 'Cloudflare for Platforms' — this is the CUSTOM-DOMAINS/TLS one (distinct from Workers for Platforms compute). Trade-off: your customers' domains now resolve through your Cloudflare zone, so you inherit responsibility for their TLS/availability and they depend on your CF account. The create-hostname POST body (ssl.method http|txt|email, ssl.type dv) and fallback-origin concept are grounded in fetched pages; the exact POST path was confirmed only as the GET list path /zones/{zone_id}/custom_hostnames from the API index — the POST shares that collection path (standard CF REST convention) but I could not fetch the POST page body this run. 'Argo for SaaS' exists in the index but its pricing was not on the plans page I fetched.
 
-**Docs:** https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/index.md, https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/index.md, https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/common-api-calls/index.md, https://developers.cloudflare.com/api/resources/custom_hostnames/methods/list/index.md
+**Docs:** https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/index.md, https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/security/waf-for-saas/index.md, https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/index.md, https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/common-api-calls/index.md, https://developers.cloudflare.com/api/resources/custom_hostnames/methods/list/index.md
 
 ---
 
@@ -656,7 +747,7 @@ _15 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 **Replaces:** The DIY 'let my edge function reach my private VPC' stack: public API gateway/ALB or bastion+VPN, IP allowlists, and SSRF/auth glue.
 
-**Use it via:** Worker binding. wrangler.jsonc key: "vpc_services": [{ "binding": "PRIVATE_API", "service_id": "<uuid>", "remote": true }]. In code: await env.PRIVATE_API.fetch(new Request("http://internal-api.company.local/users")) (absolute URL with protocol+host+path required; standard RequestInit options). Provision via CLI: `npx wrangler vpc service create my-private-api --type http --tunnel-id <id> --hostname <host>` or `... --type tcp --tcp-port 5432 --app-protocol postgresql --tunnel-id <id> --ipv4 <addr>`. Also a REST API under /connectivity/directory/services and `wrangler vpc` commands. Tunnel side runs cloudflared. For DBs, pair with Hyperdrive binding (env.HYPERDRIVE.connectionString).
+**Use it via:** Worker binding. For one fixed target, wrangler.jsonc key: "vpc_services": [{ "binding": "PRIVATE_API", "service_id": "<uuid>", "remote": true }]. For broad private-network reachability, use "vpc_networks": [{ "binding": "PRIVATE_NETWORK", "network_id": "cf1:network", "remote": true }] to reach Cloudflare Mesh nodes, Tunnel routes, and Cloudflare WAN on-ramps. In code: await env.PRIVATE_API.fetch(new Request("http://internal-api.company.local/users")) or env.PRIVATE_NETWORK.fetch("http://10.50.0.100:8080/api") (absolute URL controls destination). Provision VPC Services via `npx wrangler vpc service create my-private-api --type http --tunnel-id <id> --hostname <host>` or TCP examples; Tunnel side runs cloudflared. For DBs, pair with Hyperdrive binding (env.HYPERDRIVE.connectionString).
 
 **Capabilities:**
 - Worker -> private service connectivity for resources NOT on the public Internet (AWS, Azure, GCP, on-premise, others)
@@ -673,6 +764,8 @@ _15 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Code that calls a public ALB/API-Gateway URL purely to expose an internal service to the edge, guarded by an IP allowlist or shared secret
 - Existing cloudflared / Cloudflare Tunnel config (config.yml, `tunnel:` blocks, cloudflared in a Dockerfile or systemd unit) used to reach internal HTTP services
 - Bastion host / jump box, VPN (WireGuard, OpenVPN, Tailscale) or SSH tunnel stood up so an external compute layer can reach a private DB
+- Tailscale/Headscale/NetBird/ZeroTier/WireGuard mesh glue used mainly so edge compute can reach RFC1918 services
+- Workers that need to call multiple private services across Cloudflare Tunnel, Mesh nodes, or Cloudflare WAN on-ramps
 - DB connection strings pointing at private/RFC1918 hosts (10.x, 172.16-31.x, 192.168.x, *.internal, *.local, *.rds.amazonaws.com inside a VPC) that a Worker would need
 - node-postgres (pg) / mysql2 in a Worker against a non-public database, often already alongside a Hyperdrive binding
 - Security-group rules or NAT gateways opened to allow inbound from third-party/edge IP ranges
@@ -693,8 +786,8 @@ _15 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Beta: features and APIs may change before general availability
 - VPC Networks limits and TCP/HTTP-specific numeric constraints not published on the limits page at time of fetch
 
-**Notes:** Cloudflare-specific and beta — this is the inverse of Tunnel's usual job: instead of exposing a private service to the public web, it lets Workers dial into your private network, surfaced as a binding. Lock-in: the binding model and `wrangler vpc`/cloudflared setup are Cloudflare-only; your app code calls env.BINDING.fetch() rather than a portable URL. NOT a fit if your services are already public (just fetch them), if you don't run Workers, or if you want a generic site-to-site VPN between your own clouds (that's Magic WAN / Mesh territory, not Workers VPC). You still run and maintain the cloudflared connector inside your network. Could not verify: post-GA price, per-request/egress unit, VPC Networks-specific limits, and full TCP feature maturity — all marked unknown from the pages fetched this run. Hyperdrive is the recommended path for private DBs; raw TCP service types existed in docs but DB access is framed through Hyperdrive.
+**Notes:** Cloudflare-specific and beta — this is the inverse of Tunnel's usual job: instead of exposing a private service to the public web, it lets Workers dial into your private network, surfaced as a binding. Use VPC Services for scoped host/port targets; use VPC Networks with `network_id: "cf1:network"` when Workers need broad reach across Mesh, Tunnel routes, or Cloudflare WAN on-ramps. Lock-in: the binding model and `wrangler vpc`/cloudflared setup are Cloudflare-only; your app code calls env.BINDING.fetch() rather than a portable URL. NOT a fit if your services are already public (just fetch them), if you don't run Workers, or if you want a generic site-to-site VPN between your own clouds (that's Magic WAN / Mesh territory, not Workers VPC). You still run and maintain the cloudflared/Mesh/WAN connectors inside your network. Could not verify: post-GA price, per-request/egress unit, VPC Networks-specific limits, and full TCP feature maturity — all marked unknown from the pages fetched this run. Hyperdrive is the recommended path for private DBs; raw TCP service types existed in docs but DB access is framed through Hyperdrive.
 
-**Docs:** https://developers.cloudflare.com/workers-vpc/llms.txt, https://developers.cloudflare.com/workers-vpc/index.md, https://developers.cloudflare.com/workers-vpc/api/index.md, https://developers.cloudflare.com/workers-vpc/get-started/index.md, https://developers.cloudflare.com/workers-vpc/configuration/vpc-services/index.md, https://developers.cloudflare.com/workers-vpc/reference/pricing/index.md, https://developers.cloudflare.com/workers-vpc/reference/limits/index.md, https://developers.cloudflare.com/workers-vpc/examples/private-database/index.md
+**Docs:** https://developers.cloudflare.com/workers-vpc/llms.txt, https://developers.cloudflare.com/workers-vpc/index.md, https://developers.cloudflare.com/workers-vpc/api/index.md, https://developers.cloudflare.com/workers-vpc/get-started/index.md, https://developers.cloudflare.com/workers-vpc/configuration/vpc-services/index.md, https://developers.cloudflare.com/workers-vpc/reference/pricing/index.md, https://developers.cloudflare.com/workers-vpc/reference/limits/index.md, https://developers.cloudflare.com/workers-vpc/examples/private-database/index.md, https://developers.cloudflare.com/workers-vpc/configuration/vpc-networks/index.md, https://developers.cloudflare.com/changelog/post/2026-05-21-vpc-networks-cloudflare-wan/
 
 ---

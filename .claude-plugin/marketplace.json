@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "flarepilled",
-      "description": "Scans code for hand-rolled infra Cloudflare offers as a managed primitive, and surfaces honest, confidence-rated swaps grounded in live Cloudflare docs — 112 products across 12 categories, incl. the Zero Trust/SASE stack and the Rules family.",
+      "description": "Scans code for hand-rolled infra Cloudflare offers as a managed primitive, and surfaces honest, confidence-rated swaps grounded in live Cloudflare docs — 124 products across 12 categories, incl. the Zero Trust/SASE stack and the Rules family.",
       "source": "./",
       "category": "productivity"
     }

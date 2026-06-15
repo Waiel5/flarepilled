@@ -25,15 +25,29 @@ REC = {"do": "✅ do", "avoid": "⚠️ avoid", "idea": "💡 idea"}
 CONF_RANK = {"high": 0, "medium": 1, "community": 2}
 
 
+def assert_unique_titles(patterns):
+    seen = {}
+    dupes = []
+    for idx, pattern in enumerate(patterns, start=1):
+        title = (pattern.get("title") or "").strip().lower()
+        if not title:
+            continue
+        if title in seen:
+            dupes.append((pattern.get("title"), seen[title], idx))
+        else:
+            seen[title] = idx
+    if dupes:
+        lines = [
+            f"- {title}: entries {first} and {second}"
+            for title, first, second in dupes
+        ]
+        raise SystemExit("Duplicate community pattern titles found; fix sources/community.json:\n" + "\n".join(lines))
+
+
 def main():
     patterns = json.loads(SRC.read_text())
-    # dedupe by title
-    seen, items = set(), []
-    for p in patterns:
-        t = (p.get("title") or "").strip()
-        if t and t.lower() not in seen:
-            seen.add(t.lower())
-            items.append(p)
+    assert_unique_titles(patterns)
+    items = patterns
 
     by_cat = {}
     for p in items:

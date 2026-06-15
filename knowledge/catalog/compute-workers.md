@@ -1,6 +1,6 @@
 # Compute & Workers
 
-_8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+_11 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 ## Cloudflare Containers
 `containers` · Compute · confidence: `high` · lock-in: `portable`
@@ -169,7 +169,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Standard fetch(request, env, ctx) handler model; also supports Cron Triggers, Queue consumers, and Durable Object alarms as entry points
 - Runs on Cloudflare's global network (thousands of machines across hundreds of locations) — code executes in whichever data center receives the request, no region to pick
 - Languages: JavaScript, TypeScript, Python, Rust, and WebAssembly
-- 24+ binding types wire the Worker to the rest of the platform (KV, R2, D1, Durable Objects, Queues, Workers AI, Vectorize, Hyperdrive, Service bindings, Workflows, Browser Rendering, Images) with the credential embedded in the binding — the secret is never exposed to code
+- 24+ binding types wire the Worker to the rest of the platform (KV, R2, D1, Durable Objects, Queues, Workers AI, Vectorize, Hyperdrive, Service bindings, Workflows, Browser Run, Images) with the credential embedded in the binding — the secret is never exposed to code
 - No charge or limit for wall-clock duration and zero egress/bandwidth fees; ctx.waitUntil() extends work up to 30s after the response
 - Static asset serving is free and unlimited; subrequests don't count against request totals
 
@@ -195,7 +195,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - CPU time: 10 ms/request (Free) vs default 30s, max 5 min/request (Paid); 15 min for Cron Triggers / Queue consumers / Durable Object alarms
 - Memory: 128 MB per isolate (JS heap + WASM combined) on both plans
 - Worker size: 3 MB compressed (Free) / 10 MB compressed (Paid); up to 64 MB uncompressed
-- Subrequests: 50/request (Free) vs 10,000/request (Paid, expandable up to 10M)
+- Subrequests: Free 50 external subrequests/request plus 1,000 internal Cloudflare-service subrequests; Paid 10,000/request by default, configurable up to 10M
 - Workers per account: 100 (Free) / 500 (Paid)
 - Env vars: 64/Worker (Free) / 128/Worker (Paid), 5 KB size limit each
 - Daily requests capped at 100,000 on Free (resets midnight UTC); no daily cap on Paid
@@ -214,7 +214,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 **Replaces:** A hand-rolled durable-job stack: a queue + a worker pool + a state table that records 'which step did we reach' + cron-driven retry/backoff + idempotency keys to avoid re-running side effects. In SaaS terms it replaces paying for Temporal Cloud / Inngest / AWS Step Functions, or wiring BullMQ/Sidekiq/Celery on top of a Redis box.
 
-**Use it via:** Worker binding declared in wrangler.jsonc/.toml as [[workflows]] with name, binding (e.g. MY_WORKFLOW), class_name, and optional script_name for cross-script calls. Logic lives in a class extending WorkflowEntrypoint<Env, Params> with async run(event, step) using step.do(name, cb), step.sleep(name, duration), step.sleepUntil(name, ts), step.waitForEvent(name, {type, timeout}). Drive instances from a Worker via env.MY_WORKFLOW.create({id, params}), env.MY_WORKFLOW.get(id) then .status()/.pause()/.resume()/.restart()/.terminate()/.sendEvent(). Also exposed via REST API under /accounts/{account_id}/workflows/... (instances create/list endpoints) and the wrangler workflows CLI. Python SDK available.
+**Use it via:** Worker binding declared in wrangler.jsonc/.toml as [[workflows]] with name, binding (e.g. MY_WORKFLOW), class_name, optional script_name for cross-script calls, and optional schedules (cron expressions) for direct recurring Workflow creation. Logic lives in a class extending WorkflowEntrypoint<Env, Params> with async run(event, step) using step.do(name, cb), step.sleep(name, duration), step.sleepUntil(name, ts), step.waitForEvent(name, {type, timeout}). Drive instances from a Worker via env.MY_WORKFLOW.create({id, params}), env.MY_WORKFLOW.get(id) then .status()/.pause()/.resume()/.restart()/.terminate()/.sendEvent(). Also exposed via REST API under /accounts/{account_id}/workflows/... (instances create/list endpoints) and the wrangler workflows CLI. Python SDK available.
 
 **Capabilities:**
 - Durable step execution: each step.do() result is persisted, so a crash or redeploy resumes from the last completed step instead of restarting
@@ -223,6 +223,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - step.waitForEvent() blocks a running instance until an external event (webhook, approval, callback) arrives — default 24h timeout, enables human-in-the-loop
 - Instance lifecycle control: create, get/status, pause, resume, restart, terminate, sendEvent
 - Triggerable from a Worker fetch handler, a Cron Trigger (scheduled handler), a Queue consumer, the REST API, wrangler CLI, a Durable Object, or another Workflow (child workflows)
+- Workflow bindings can define `schedules` directly so recurring Workflow instances start without a separate scheduled Worker handler
 - Waiting instances (sleeping/retrying/awaiting events) do not consume concurrency slots — millions can wait at once
 - Python Workflows SDK in addition to TypeScript, including a DAG style
 - Built-in observability for instance state, and status values: queued/running/paused/errored/terminated/complete/waiting/unknown
@@ -235,6 +236,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - A DB table named jobs/tasks/workflow_state/saga_state/job_runs with columns like status, current_step, attempts/retry_count, next_run_at, idempotency_key, last_error
 - Redis used as a job broker: REDIS_URL alongside worker/consumer processes, *.process()/.add() job queue calls
 - Cron jobs (node-cron, a Kubernetes CronJob, or a Cloudflare scheduled handler) that scan for 'stuck' or 'pending' rows and retry them — a hand-rolled retry loop
+- A periodic multi-step job that uses Cron only to kick off a stateful pipeline — use Workflows `schedules` directly when the durable unit is the Workflow
 - Hand-written exponential-backoff/retry helpers wrapping external API calls (retry(fn, {attempts, backoff}), p-retry)
 - Long-running orchestration that must outlive a single request: multi-step onboarding, trial-expiry/dunning emails, ETL/data pipelines, AI agent pipelines with approval gates, order/payment sagas
 - Idempotency-key plumbing added specifically to make re-runnable side effects safe
@@ -245,7 +247,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Build a human-in-the-loop AI/agent pipeline: run generation steps, then step.waitForEvent() to block on a reviewer's approval webhook before publishing — no separate 'paused job' table or polling loop.
 - Move ETL / fan-out data pipelines that currently chain Queue messages with manual checkpointing onto Workflows so a mid-pipeline failure resumes from the last completed step rather than reprocessing, and orchestrate sub-jobs via child workflows.
 
-**Pairs with:** Cloudflare Queues (trigger a Workflow per message; offload fan-out), Durable Objects (Workflows build on the same durable primitives; trigger from within a DO), R2 / D1 / KV (read/write durable data inside steps; the canonical example fetches from R2), Workers AI / AI Gateway (multi-step AI/agent pipelines with retries and approval gates), Cron Triggers (kick off scheduled Workflow runs from a scheduled handler), Email Routing / Email Sending (lifecycle email sequences as workflow steps)
+**Pairs with:** Cloudflare Queues (trigger a Workflow per message; offload fan-out), Durable Objects (Workflows build on the same durable primitives; trigger from within a DO), R2 / D1 / KV (read/write durable data inside steps; the canonical example fetches from R2), Workers AI / AI Gateway (multi-step AI/agent pipelines with retries and approval gates), Cron Triggers (only when the schedule is a plain Worker job; use Workflows `schedules` for recurring Workflow instances), Email Routing / Email Sending (lifecycle email sequences as workflow steps)
 
 **Pricing:** No separate plan: Workflows are billed as Workers and share the same CPU-time and request SKUs. Free plan: included with Workers Free — 100,000 requests/day (shared with Workers), 10 ms CPU per invocation, 1 GB storage. Workers Paid: 10M requests/mo then $0.30/additional million; 30M CPU-ms/mo then $0.02/additional million; 1 GB storage/mo then $0.20/GB-month (storage billing began Sep 15, 2025). Steps are NOT billed separately, and idle time (step.sleep, waiting on events/APIs) incurs no CPU charge. (verify — drifts)
 
@@ -266,7 +268,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 **Notes:** Platform lock-in: the WorkflowEntrypoint/step.* programming model is Cloudflare-specific (closest analog is Temporal/Step Functions), so porting off later means a rewrite, not a config change. The 10 ms CPU-per-step cap on the Free plan is tiny — real workloads need Workers Paid. Steps must be deterministic-ish and idempotent: a step can re-run on retry, and only structured-cloneable results ≤1 MiB persist between steps, so it is NOT a drop-in for in-memory job logic that passes huge blobs around (stream those instead). Not the right tool for sub-second synchronous request/response work (just use a Worker) or for high-throughput stream processing (use Queues/Pipelines). Heavy compute per step still bills as Workers CPU. I did not fetch the exact REST endpoint paths or wrangler CLI subcommand strings (the trigger page deferred to other docs), so those surface details are described by shape rather than verbatim; everything else is grounded in the pages fetched this run.
 
-**Docs:** https://developers.cloudflare.com/workflows/llms.txt, https://developers.cloudflare.com/workflows/index.md, https://developers.cloudflare.com/workflows/reference/pricing/index.md, https://developers.cloudflare.com/workflows/reference/limits/index.md, https://developers.cloudflare.com/workflows/build/workers-api/index.md, https://developers.cloudflare.com/workflows/build/trigger-workflows/index.md
+**Docs:** https://developers.cloudflare.com/workflows/llms.txt, https://developers.cloudflare.com/workflows/index.md, https://developers.cloudflare.com/workflows/reference/pricing/index.md, https://developers.cloudflare.com/workflows/reference/limits/index.md, https://developers.cloudflare.com/workflows/build/workers-api/index.md, https://developers.cloudflare.com/workflows/build/trigger-workflows/index.md, https://developers.cloudflare.com/changelog/post/2026-06-02-cron-workflows/
 
 ---
 
@@ -329,7 +331,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 **Replaces:** A GitHub Actions / GitLab CI / CircleCI pipeline whose entire job is to checkout, install, build, and run `wrangler deploy` against Cloudflare.
 
-**Use it via:** Dashboard: Workers & Pages > (Worker) > Settings > Builds to connect repo and set build/deploy commands. Wrangler config file (wrangler.toml / wrangler.jsonc) is required and its `name` must match the dashboard Worker name. Deploy command is typically `wrangler deploy` (deploy) or `wrangler versions upload` (preview only). Builds API reference + Deploy Hook URLs for external triggering. GitHub/GitLab integration via OAuth app install.
+**Use it via:** Dashboard: Workers & Pages > (Worker) > Settings > Builds to connect repo and set build/deploy commands. Existing Workers usually use a wrangler.toml / wrangler.jsonc whose `name` matches the dashboard Worker name, but supported framework projects without config can use Wrangler automatic configuration; dashboard imports generate an automatic PR when the deploy command is `npx wrangler deploy`. Deploy command is typically `wrangler deploy` (deploy) or `wrangler versions upload` (preview only). Builds API reference + Deploy Hook URLs for external triggering. GitHub/GitLab integration via OAuth app install.
 
 **Capabilities:**
 - Connect a GitHub or GitLab repo to a Worker; a push to the connected branch triggers a build + deploy (configured via Settings > Builds in the dashboard).
@@ -338,6 +340,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Build branches / automatic pull request builds: non-production branches and PRs can trigger builds for preview before merge.
 - Build watch paths to skip builds when irrelevant paths change (monorepo support).
 - Build caching to speed up dependency install / build steps across runs.
+- For supported framework projects without Wrangler config, Workers Builds can run automatic configuration and open a pull request when the deploy command is `npx wrangler deploy`.
 - Deploy Hooks: unique URLs to trigger a build from an external system (rate-limited 10/min per Worker, 100/min per account).
 - Build-time environment variables (up to 64, 5 KB each) and a Builds API reference for programmatic management.
 
@@ -345,11 +348,13 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - A `.github/workflows/*.yml` (or `.gitlab-ci.yml` / `.circleci/config.yml`) whose only real step is `npm ci && npx wrangler deploy` (or uses `cloudflare/wrangler-action`).
 - `CLOUDFLARE_API_TOKEN` / `CF_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` stored as CI secrets purely to authenticate wrangler deploys.
 - A wrangler.toml/wrangler.jsonc in the repo paired with a hand-written deploy pipeline.
+- A supported framework project with no wrangler config where deploy CI is mostly framework build + `wrangler deploy` and can use automatic configuration.
 - Custom shell scripts (deploy.sh) that wrap `wrangler deploy` with branch logic.
 - Multiple near-identical workflow files for prod vs preview/staging branch deploys.
 
 **Ideas:**
 - This GitHub Actions workflow only does `npm ci && wrangler deploy` with a CF API token secret — replace it with Workers Builds connected to the repo so pushes auto-deploy without managing CI minutes or tokens.
+- Import the repo through Workers Builds with deploy command `npx wrangler deploy` so Wrangler automatic configuration opens a PR for supported frameworks instead of hand-authoring the initial config.
 - You deploy preview branches via a second CI workflow — use Workers Builds branch/PR builds with `wrangler versions upload` to get preview URLs per PR instead.
 - Your monorepo rebuilds the Worker on every commit — configure Workers Builds watch paths + build caching so only relevant changes trigger a deploy.
 
@@ -362,11 +367,155 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - 1 concurrent build on Free, 6 on Paid (queued beyond that).
 - GitHub/GitLab only for native git integration (no Bitbucket native connect; use Deploy Hooks for other systems).
 - 64 build env vars, 5 KB each; Deploy Hooks rate-limited 10/min per Worker, 100/min per account.
-- Worker `name` in wrangler config must exactly match the dashboard Worker.
+- For manual/existing Worker config, Worker `name` in wrangler config must exactly match the dashboard Worker; supported framework imports may generate that config through automatic PRs.
 
 **Notes:** Tighter integration than external CI but Cloudflare-specific: your build/deploy pipeline now lives in the CF dashboard, not in-repo YAML, which reduces portability if you later leave Workers. Cloudflare still documents External CI/CD (GitHub Actions / GitLab CI with wrangler-action) as a supported alternative — prefer that when you need a shared org-wide pipeline, custom runners, complex multi-service orchestration, or build steps unrelated to the Worker. Native git connect is GitHub/GitLab only.
 
-**Docs:** https://developers.cloudflare.com/workers/ci-cd/builds/, https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/, https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/, https://developers.cloudflare.com/workers/ci-cd/index.md
+**Docs:** https://developers.cloudflare.com/workers/ci-cd/builds/, https://developers.cloudflare.com/workers/ci-cd/builds/automatic-prs/, https://developers.cloudflare.com/workers/framework-guides/automatic-configuration/index.md, https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/, https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/, https://developers.cloudflare.com/workers/ci-cd/index.md
+
+---
+
+## Workers Cron Triggers
+`workers-cron-triggers` · Compute / Scheduling · confidence: `high` · lock-in: `portable`
+
+**Is:** Cron expressions attached to a Worker scheduled() handler for periodic jobs without a cron VM, Kubernetes CronJob, GitHub Actions schedule, EventBridge rule, or node-cron process.
+
+**Replaces:** A cron box, Kubernetes CronJob, GitHub scheduled workflow, EventBridge Scheduler, node-cron/APScheduler process, or systemd timer that only wakes up to run a small Worker-shaped job.
+
+**Use it via:** Worker export includes `async scheduled(controller, env, ctx)`. wrangler.jsonc: { "triggers": { "crons": ["*/30 * * * *", "0 15 1 * *"] } }. Per-env: env.dev.triggers.crons. Local test: `curl http://localhost:8787/cdn-cgi/handler/scheduled?cron=*+*+*+*+*`.
+
+**Capabilities:**
+- Attach one or more cron expressions to a Worker through wrangler config or the dashboard
+- scheduled(controller, env, ctx) handler runs on UTC schedule
+- Supports common five-field cron syntax plus Quartz-like L/W/# extensions
+- Per-environment cron configuration in wrangler
+- Local testing through wrangler dev at /cdn-cgi/handler/scheduled
+- Past Cron Events and Workers Logs expose scheduled invocation history
+- Workflow bindings can define `schedules` directly when the recurring unit is a Workflow
+
+**Detection signals — the lens fires on these:**
+- node-cron, cron, crontab, systemd timers, APScheduler, Celery beat, Sidekiq-Cron, whenever, or Laravel Scheduler
+- Kubernetes CronJob manifests or Helm chart templates
+- GitHub Actions `on: schedule` workflows whose job calls an API or runs a small script
+- AWS EventBridge Scheduler / CloudWatch Events rules invoking Lambda for a simple periodic task
+- A Worker project with a queue/cron/bootstrap endpoint that is manually hit by an external scheduler
+- Periodic maintenance jobs: cleanup, polling an API, refreshing cache, sending digest email, rotating keys
+
+**Ideas:**
+- Move a tiny scheduled maintenance script into a Worker scheduled() handler and delete the cron VM/GitHub workflow.
+- Use Cron Triggers for stateless periodic jobs; use Workflows `schedules` when the periodic job is a durable multi-step process.
+- Keep the existing job as-is when it needs native binaries, long CPU time, or private network access not already available from Workers.
+
+**Pairs with:** Workers, Workflows, Queues, D1/KV/R2, Workers Logs
+
+**Pricing:** Cron-triggered Worker invocations bill as Workers requests/CPU. There is no separate Cron Triggers SKU documented. (verify current Workers pricing and trigger-count limits before quoting.)
+
+**Limits:**
+- Cron Triggers execute on UTC time
+- Adding, updating, or deleting a Cron Trigger can take several minutes, up to 15 minutes, to propagate
+- Past Cron Events may take up to 30 minutes to appear after creating or renaming a Worker
+- Not for durable multi-step orchestration by itself; use Workflows when retries/state/sleeps matter
+
+**Notes:** Smallest primitive for scheduled, stateless Worker jobs. If the job is a durable process with sleeps/retries/checkpoints, start with Workflows and its direct `schedules` field instead.
+
+**Docs:** https://developers.cloudflare.com/workers/configuration/cron-triggers/index.md, https://developers.cloudflare.com/workers/runtime-apis/handlers/scheduled/index.md, https://developers.cloudflare.com/workers/examples/cron-trigger/index.md, https://developers.cloudflare.com/workflows/build/trigger-workflows/index.md, https://developers.cloudflare.com/workers/platform/limits/#cron-triggers
+
+---
+
+## Workers Service Bindings / RPC
+`workers-service-bindings-rpc` · Compute / Worker-to-Worker RPC · confidence: `high` · lock-in: `portable`
+
+**Is:** Private Worker-to-Worker calls through an explicit binding, using either RPC methods on WorkerEntrypoint classes or fetch-style HTTP without public URLs, API tokens, mTLS, or internal gateways.
+
+**Replaces:** Public workers.dev/internal HTTP calls between Workers, internal API gateways, service-to-service bearer tokens, mTLS glue, or Workers for Platforms when the called Workers are known at deploy time.
+
+**Use it via:** wrangler.jsonc on the caller: { "services": [{ "binding": "AUTH", "service": "auth-worker" }] }. RPC target extends WorkerEntrypoint from `cloudflare:workers` and exposes public async methods; caller uses `await env.AUTH.method(args)`. HTTP callers use `await env.AUTH.fetch(request)`. Deploy the target Worker before the caller when first wiring the binding.
+
+**Capabilities:**
+- Caller Worker declares a `services` binding to a target Worker in wrangler config
+- RPC interface lets callers invoke public async methods directly, for example `env.AUTH.checkSession()`
+- HTTP interface supports `env.SERVICE.fetch(request)` for fetch-handler style services
+- Target Worker can be isolated from the public Internet and reachable only by bound callers
+- No added latency by default because bound Workers run on the same thread/server when possible
+- No extra Service Binding cost beyond normal Worker execution; each call counts against invocation/subrequest limits
+- Local development supported by running bound Workers together with Wrangler
+
+**Detection signals — the lens fires on these:**
+- Worker code fetches `https://*.workers.dev` or a public route belonging to another Worker in the same account
+- Service-to-service API tokens, shared secrets, HMAC headers, or mTLS used only between Cloudflare Workers
+- Internal SDK/client packages wrapping another Worker endpoint
+- A small auth, billing, tenancy, or config service duplicated across multiple Workers
+- Workers for Platforms / dispatch namespace considered even though the set of target Workers is static
+- `WorkerEntrypoint` classes or comments about RPC/internal services with no `services` binding in wrangler config
+
+**Ideas:**
+- Replace public HTTP calls from one Worker to another with a service binding so the internal service has no public URL and no bearer token path.
+- Move shared auth/session logic into one WorkerEntrypoint and bind it from every edge app instead of copy-pasting middleware.
+- Use Service Bindings, not Workers for Platforms, when the caller and callee are a fixed set of Workers deployed by your team.
+
+**Pairs with:** Workers, WorkerEntrypoint RPC, Smart Placement, Workers for Platforms (dynamic-tenant alternative), Durable Objects (stateful service target)
+
+**Pricing:** Service bindings themselves add no extra cost; the Workers still bill under normal Workers pricing. Each service-binding call counts as a subrequest and a Worker invocation in the request chain. (verify current limits before quoting.)
+
+**Limits:**
+- Each request to a Worker via a Service Binding counts toward the subrequest limit
+- A single request has a maximum of 32 Worker invocations; service-binding calls count toward that chain
+- Service binding calls must be awaited or the target Worker may terminate early
+- Target Worker must exist before first deploying a caller that binds to it
+
+**Notes:** Strong fit for fixed internal service graphs on Workers. Not a cross-cloud service mesh, not for arbitrary external HTTP clients, and not a replacement for Workers for Platforms when tenant code is deployed dynamically.
+
+**Docs:** https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/index.md, https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/rpc/index.md, https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/http/index.md, https://developers.cloudflare.com/workers/runtime-apis/rpc/lifecycle/index.md, https://developers.cloudflare.com/workers/platform/pricing/#service-bindings
+
+---
+
+## Workers Static Assets
+`workers-static-assets` · Compute / Static Assets Hosting · confidence: `high` · lock-in: `portable`
+
+**Is:** Serve static assets and full-stack app frontends from the same Cloudflare Worker deployment, with explicit asset routing, an ASSETS binding, SPA/404 handling, redirects, and headers.
+
+**Replaces:** S3 + CloudFront static hosting, Vercel/Netlify for greenfield Cloudflare-hosted static/full-stack apps, nginx serving a dist/ folder beside a small API, or legacy Pages deployments that need the fuller Workers runtime.
+
+**Use it via:** wrangler.jsonc: { "name": "app", "main": "./worker/index.ts", "compatibility_date": "2026-06-15", "assets": { "directory": "./dist/client", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": true } }. Asset-only projects omit `main` and `assets.binding`. CLI: `npx wrangler deploy`, `npx wrangler deploy dist`, or `npx wrangler setup` for automatic framework configuration.
+
+**Capabilities:**
+- Upload an assets directory with a Worker using the wrangler `assets.directory` configuration
+- Serve static assets for free while dynamic Worker invocations bill like Workers
+- Full-stack routing: static assets plus Worker code, with `assets.run_worker_first` when auth/logging must run before asset service
+- Configurable SPA fallback and custom 404 behavior via `assets.not_found_handling`
+- ASSETS binding lets Worker code fetch bundled static assets directly
+- Supports `_headers` and `_redirects` files for static assets
+- Wrangler 4.68+ can automatically configure supported framework projects with `wrangler deploy` or `wrangler setup`
+- Workers has broader runtime/observability support than Pages, including Durable Objects, Cron Triggers, Queue consumers, Email Workers, Workers Logs, Logpush, Tail Workers, and Source Maps
+
+**Detection signals — the lens fires on these:**
+- S3 + CloudFront or nginx config exists only to serve `dist/`, `build/`, or `public/` static files
+- vercel.json / netlify.toml in a project that already targets Cloudflare or has a simple static/full-stack shape
+- Cloudflare Pages config (`pages_build_output_dir`, `wrangler pages deploy`, `wrangler pages dev`) paired with needs for Cron, Queue consumers, Email Workers, Logpush, Tail Workers, source maps, or first-class Workers observability
+- A full-stack framework project with no wrangler config where `wrangler deploy` can auto-configure the adapter and static assets
+- `_headers`, `_redirects`, SPA fallback, or custom 404 behavior implemented in app code purely for static assets
+- A Dockerfile/Procfile that only runs nginx or `serve` for a compiled frontend plus a small API
+
+**Ideas:**
+- For a greenfield static or full-stack Cloudflare app, deploy to Workers Static Assets first; keep Pages for existing Pages projects or Pages-specific git workflows.
+- Replace an S3+CloudFront static-site pipeline with `wrangler deploy` and an `assets.directory` config, keeping the API in the same Worker when needed.
+- Migrate a Pages project that needs Cron Triggers, Queue consumers, Email Workers, or fuller observability to Workers Static Assets using Cloudflare's Pages-to-Workers guide.
+- Run `npx wrangler setup --dry-run` in an existing framework app to see the generated adapter/config before modifying the repo.
+
+**Pairs with:** Workers, Wrangler automatic configuration, Cloudflare Vite plugin, Workers Builds, Pages migration guide, Access (protect preview URLs or internal apps)
+
+**Pricing:** Static asset requests are free like Pages static assets. Worker code invoked for dynamic/full-stack behavior bills under Workers pricing. Build/deploy automation may involve Workers Builds limits if connected to git. (verify current Workers pricing before quoting.)
+
+**Limits:**
+- Individual static asset file size limit is 25 MiB
+- Static assets per Worker version: 20,000 on Free; 100,000 on Paid / Workers for Platforms with Wrangler 4.34.0+
+- If a Worker script needs to fetch assets, configure an ASSETS binding; asset-only projects should not set the binding
+- Workers custom domains require the domain's nameservers to be managed by Cloudflare
+- Workers serve static assets before Worker code by default; set `run_worker_first` when middleware/auth must run first
+
+**Notes:** This is the default recommendation for new Cloudflare-hosted static/full-stack apps unless the user explicitly wants Pages' git-first workflow or the repo is already a healthy Pages project. Pages still exists and is useful; the precision is choosing by product shape, not reflexively saying Pages for every static site.
+
+**Docs:** https://developers.cloudflare.com/workers/static-assets/index.md, https://developers.cloudflare.com/workers/static-assets/binding/index.md, https://developers.cloudflare.com/workers/static-assets/routing/index.md, https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/index.md, https://developers.cloudflare.com/workers/framework-guides/automatic-configuration/index.md, https://developers.cloudflare.com/workers/platform/limits/#static-assets
 
 ---
 

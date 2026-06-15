@@ -1,6 +1,6 @@
 # Storage, Databases & Data
 
-_7 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+_8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 ## Cloudflare Artifacts
 `artifacts` · Versioned storage / Git-compatible object store · confidence: `high` · lock-in: `sticky`
@@ -53,7 +53,7 @@ _7 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 ## Cloudflare D1
 `d1` · Database · confidence: `high` · lock-in: `sticky`
 
-**Is:** Cloudflare's managed, serverless SQLite-semantics database queried directly from Workers and Pages via a binding or HTTP API, with point-in-time recovery and global read replication.
+**Is:** Cloudflare's managed, serverless SQLite-semantics database queried directly from Workers and Pages via a binding or HTTP API, with point-in-time recovery and beta global read replication via Sessions.
 
 **Replaces:** A managed Postgres/MySQL instance (RDS, Neon, PlanetScale, Supabase) plus its connection-pooling layer — or a self-hosted SQLite/libSQL box — for a Workers-resident app backend.
 
@@ -64,7 +64,7 @@ _7 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Direct Worker/Pages binding (env.DB) plus prepared statements with parameter binding
 - Batch transactions (db.batch([...])) and raw SQL exec for migrations/bulk DDL
 - Time Travel: point-in-time restore to any minute within the last 30 days (built-in disaster recovery)
-- Global read replication via the Sessions API (db.withSession()) to cut read latency across regions
+- Beta global read replication via the Sessions API (db.withSession()) to cut read latency across regions while preserving session consistency
 - Create thousands of isolated databases per account at no extra cost (per-tenant / per-customer DB-per-user patterns)
 - Import/export of SQL and bulk data; query from dashboard, Wrangler CLI, or REST
 - Billed only on queries (rows read/written) and storage — idle databases cost only storage
@@ -82,7 +82,7 @@ _7 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 **Ideas:**
 - Move a Workers app's relational data off an external Postgres/Neon instance into D1 to kill the connection string, pooling layer, and cross-region read latency.
 - Use database-per-tenant (thousands of free isolated D1 DBs) for a multi-tenant SaaS or a vibe-coding/app-builder platform instead of row-level tenant isolation in one big DB.
-- Replace a nightly SQL-dump backup cron with built-in Time Travel 30-day point-in-time restore, and add read replicas via the Sessions API for read-heavy endpoints.
+- Replace a nightly SQL-dump backup cron with built-in Time Travel 30-day point-in-time restore; for read-heavy endpoints, evaluate beta read replicas through the Sessions API rather than assuming default global reads.
 
 **Pairs with:** Cloudflare Workers / Pages (the compute that binds D1), Workers KV (hot key-value cache in front of D1 reads), R2 (large blobs/files that exceed the 2 MB row limit — store in R2, keep keys in D1), Durable Objects (strongly-consistent per-entity coordination alongside D1's relational store), Hyperdrive (the alternative when you must keep an existing external Postgres/MySQL rather than migrate to D1), Drizzle ORM / Kysely / Prisma (D1 adapters)
 
@@ -97,9 +97,9 @@ _7 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Max query duration 30s; queries per Worker invocation 50 (Free) / 1,000 (Paid); max 6 simultaneous DB connections per Worker invocation
 - Max `wrangler d1 execute` import file size 5 GB
 
-**Notes:** SQLite semantics, not Postgres — no native pgvector, limited concurrent-write throughput, single-primary writes (replicas are read-only and eventually consistent). The 10 GB hard per-database cap is non-increasable, so very large single datasets must shard across databases or live elsewhere. 2 MB max row/BLOB size means large files belong in R2. Lock-in: data lives in Cloudflare and is reached via the Worker binding / D1 REST API; portability is eased by standard SQLite SQL + export, but app code couples to the binding. If you need to keep an existing external SQL database, Hyperdrive (not D1) is the right tool. Read-replication and per-row billing model verified from pricing/limits pages fetched this run.
+**Notes:** SQLite semantics, not Postgres — no native pgvector, limited concurrent-write throughput, single-primary writes. Read replication is public beta/opt-in: without the Sessions API/bookmarks, normal queries do not give a magic read-your-writes edge cache. The 10 GB hard per-database cap is non-increasable, so very large single datasets must shard across databases or live elsewhere. 2 MB max row/BLOB size means large files belong in R2. Lock-in: data lives in Cloudflare and is reached via the Worker binding / D1 REST API; portability is eased by standard SQLite SQL + export, but app code couples to the binding. If you need to keep an existing external SQL database, Hyperdrive (not D1) is the right tool. Read-replication caveat and per-row billing model verified from live docs.
 
-**Docs:** https://developers.cloudflare.com/d1/llms.txt, https://developers.cloudflare.com/d1/index.md, https://developers.cloudflare.com/d1/platform/pricing/index.md, https://developers.cloudflare.com/d1/platform/limits/index.md, https://developers.cloudflare.com/d1/worker-api/index.md, https://developers.cloudflare.com/d1/get-started/index.md
+**Docs:** https://developers.cloudflare.com/d1/llms.txt, https://developers.cloudflare.com/d1/index.md, https://developers.cloudflare.com/d1/platform/pricing/index.md, https://developers.cloudflare.com/d1/platform/limits/index.md, https://developers.cloudflare.com/d1/worker-api/index.md, https://developers.cloudflare.com/d1/get-started/index.md, https://developers.cloudflare.com/d1/best-practices/read-replication/index.md, https://developers.cloudflare.com/changelog/post/2025-04-10-d1-read-replication-beta/
 
 ---
 
@@ -221,7 +221,7 @@ _7 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Event notifications -> Queues, so writes/deletes can trigger Workers (thumbnailing, indexing, ETL)
 - Standard + Infrequent Access storage classes ($0.01/GB-mo + $0.01/GB retrieval) and lifecycle rules
 - Jurisdictional Restrictions (EU, FedRAMP) and Location Hints for data residency / placement
-- Bucket locks (object-lock / WORM-style retention) for compliance and ransomware protection
+- Cloudflare-native bucket locks for WORM-style retention; not S3 Object Lock API/header compatible, and S3 bucket versioning APIs remain unimplemented
 - Migration tooling: Super Slurper (bulk one-time copy from S3/GCS/MinIO/Wasabi/B2/DO Spaces) and Sippy (incremental, copy-on-read migration)
 - R2 Data Catalog: managed Apache Iceberg REST catalog built into the bucket; query with R2 SQL, Spark, Snowflake, DuckDB, Trino, PyIceberg
 
@@ -252,9 +252,54 @@ _7 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Concurrent writes to the SAME key: ~1/second; bucket-management ops ~50/second
 - REST API ~1,200 requests per 5 minutes across all R2 operations; free r2.dev subdomain is rate-limited (429s past a few hundred req/s) and meant for dev, not production traffic
 
-**Notes:** Egress is free directly from R2, but other Cloudflare services layered on top can still meter (e.g. Images transformations). Vendor lock-in is modest at the API layer (S3-compatible, so SDKs port back out), but jurisdiction is immutable once a bucket is created and the deeper features (Workers binding, Data Catalog, event notifications) are Cloudflare-specific. Not a database or a filesystem: no in-place partial writes/appends, no POSIX semantics, ~1 write/sec per key, eventual-ish for high-churn keys — wrong tool for hot mutable state (use D1/KV/Durable Objects). Several adjacent pieces (R2 Data Catalog, R2 SQL) are recent/beta-era; confirm GA status and current pricing before relying on them. Object-size and single-part numbers are documented as 5 TiB / 5 GiB but are precisely ~4.995 — verify against current limits page.
+**Notes:** Egress is free directly from R2, but other Cloudflare services layered on top can still meter (e.g. Images transformations). Vendor lock-in is modest at the API layer (S3-compatible, so SDKs port back out), but jurisdiction is immutable once a bucket is created and the deeper features (Workers binding, Data Catalog, event notifications) are Cloudflare-specific. Not a database or a filesystem: no in-place partial writes/appends, no POSIX semantics; direct Workers/S3 API operations are strongly globally consistent, but same-key writes are limited to about 1/sec, concurrent writes are last-writer-wins, and cached custom-domain/CDN responses can be stale until TTL/purge — wrong tool for hot mutable state (use D1/KV/Durable Objects). Several adjacent pieces (R2 Data Catalog, R2 SQL) are recent/beta-era; confirm GA status and current pricing before relying on them. Object-size and single-part numbers are documented as 5 TiB / 5 GiB but are precisely ~4.995 — verify against current limits page.
 
 **Docs:** https://developers.cloudflare.com/r2/llms.txt, https://developers.cloudflare.com/r2/index.md, https://developers.cloudflare.com/r2/pricing/index.md, https://developers.cloudflare.com/r2/platform/limits/index.md, https://developers.cloudflare.com/r2/api/workers/workers-api-usage/index.md, https://developers.cloudflare.com/r2/api/s3/api/index.md, https://developers.cloudflare.com/r2/reference/data-location/index.md
+
+---
+
+## R2 Data Catalog
+`r2-data-catalog` · Storage / Data Catalog · confidence: `medium` · lock-in: `sticky`
+
+**Is:** A managed Apache Iceberg REST catalog built into R2 buckets, so analytical engines can coordinate table metadata over data stored in R2 without running Glue, Hive Metastore, Nessie, or a custom Iceberg catalog.
+
+**Replaces:** AWS Glue Data Catalog, Hive Metastore, Apache Nessie, a self-hosted Iceberg REST catalog, or custom metadata tables around Parquet/Iceberg datasets in object storage.
+
+**Use it via:** R2 bucket-level Data Catalog configuration plus Iceberg REST Catalog endpoint/credentials from Cloudflare. External engines configure their Iceberg catalog to point at the R2 Data Catalog endpoint and access table data in R2.
+
+**Capabilities:**
+- Enable a managed Apache Iceberg catalog directly on an R2 bucket
+- Exposes a standard Iceberg REST catalog interface
+- Works with engines such as Spark, Snowflake, PyIceberg, Trino, DuckDB, and ClickHouse through Iceberg support
+- Centralizes table list and current metadata pointers while Iceberg data/metadata files remain in object storage
+- Supports ACID table semantics, schema evolution, and metadata-driven query planning through Apache Iceberg
+- Zero-egress R2 storage model helps multi-cloud analytical readers avoid transfer fees
+
+**Detection signals — the lens fires on these:**
+- pyiceberg, spark.sql.catalog.*, iceberg REST catalog config, Trino Iceberg connector, DuckDB Iceberg extension, Snowflake external catalog setup
+- Hive Metastore, AWS Glue Catalog, Apache Nessie, or a custom Iceberg catalog service in infra
+- Parquet/Iceberg tables in S3/R2/GCS with hand-maintained metadata pointers
+- ETL/log analytics/data lakehouse pipelines writing Iceberg/Parquet and running a separate catalog just for discovery/metadata
+- R2 bucket used as an analytics lake with Spark/Snowflake/PyIceberg readers
+
+**Ideas:**
+- If R2 is already the lake storage layer, replace Glue/Hive/Nessie catalog glue with R2 Data Catalog so engines use a managed Iceberg REST endpoint.
+- Pair Pipelines' Iceberg sink with R2 Data Catalog for log analytics before adding an external metastore.
+- Keep an external catalog when the source of truth must be cloud-agnostic today; R2 Data Catalog is public beta.
+
+**Pairs with:** R2, Pipelines, R2 SQL, Spark, Snowflake, PyIceberg, DuckDB / Trino / ClickHouse
+
+**Pricing:** Public beta. Outside standard R2 storage and operations, docs say R2 Data Catalog is not currently billed; verify before production design.
+
+**Limits:**
+- Public beta; API/pricing/behavior can change
+- Requires an R2 subscription and R2 bucket as the storage layer
+- Does not replace the analytical query engine; Spark/Snowflake/Trino/DuckDB/etc. still do the compute
+- Open Iceberg format softens lock-in, but catalog identity and endpoint are Cloudflare-specific
+
+**Notes:** Best surfaced when the smell is 'we run a catalog/metastore for object-storage analytics,' not merely 'we store files in R2.' Beta status caps recommendation confidence in production paths.
+
+**Docs:** https://developers.cloudflare.com/r2/llms.txt, https://developers.cloudflare.com/r2/data-catalog/index.md, https://developers.cloudflare.com/r2/data-catalog/get-started/index.md, https://developers.cloudflare.com/r2/data-catalog/manage-catalogs/index.md, https://developers.cloudflare.com/r2/data-catalog/config-examples/index.md
 
 ---
 

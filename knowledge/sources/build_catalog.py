@@ -12,7 +12,6 @@ dropped. # flarepilled: keyword bucketing, hand-map a slug only if it lands wron
 import json
 import re
 from pathlib import Path
-from datetime import date
 
 ROOT = Path(__file__).resolve().parents[2]  # /Users/grey/CF
 SRC = ROOT / "knowledge" / "sources" / "catalog.json"
@@ -40,19 +39,13 @@ BUCKETS = [
 BUCKET_OVERRIDE = {
     "workers-kv": "Storage, Databases & Data",          # "Storage / Edge cache" -> Performance
     "r2-sql": "Storage, Databases & Data",              # "Data & Analytics" -> Observability
+    "r2-data-catalog": "Storage, Databases & Data",     # "catalog" contains "log"
     "cloudflare-load-balancing": "Performance & CDN",   # Cloudflare lists under App performance
     "cloudflare-waiting-room": "Performance & CDN",
     "cloudflare-health-checks": "Performance & CDN",
     "cloudflare-google-tag-gateway": "Performance & CDN",
     "cloudflare-snippets": "Rules & Edge Logic",        # keep the Rules family whole
 }
-
-# Corrections from the critic, applied as appended notes (slug -> text).
-OVERRIDES = {
-    "email-service": "CRITIC FIX: inbound is a first-class feature, **Email Routing** (route to custom addresses / Workers / external destinations, with plus-addressing) — it replaces ImprovMX / ForwardEmail / Google Workspace catch-all routing, not 'just an inbound-parse webhook'. Outbound transactional sending is the other half.",
-    "cloudflare-one": "CRITIC FIX: this is the **parent SASE umbrella**, not a single product. Its sub-products each have their own entry: **Access** (ZTNA), **Gateway** (SWG), **Browser Isolation**, **CASB**, **DLP**, **Email Security** (inbound/Area 1), **DEX**. Scan those by name.",
-}
-
 
 TITLE2FNAME = {t: f for (t, f, _) in BUCKETS}
 
@@ -109,46 +102,55 @@ def short(text, n=110):
     return text if len(text) <= n else text[: n - 1].rstrip() + "…"
 
 
+def assert_unique_slugs(entries):
+    seen = {}
+    dupes = []
+    for idx, entry in enumerate(entries, start=1):
+        slug = entry.get("slug") or anchor(entry.get("name", "?"))
+        if slug in seen:
+            dupes.append((slug, seen[slug], idx))
+        else:
+            seen[slug] = idx
+    if dupes:
+        lines = [
+            f"- {slug}: entries {first} and {second}"
+            for slug, first, second in dupes
+        ]
+        raise SystemExit("Duplicate catalog slugs found; fix sources/catalog.json:\n" + "\n".join(lines))
+
+
 def main():
     entries = json.loads(SRC.read_text())
-    # dedupe by slug, keep first
-    seen, deduped = set(), []
-    for e in entries:
-        s = e.get("slug") or anchor(e.get("name", "?"))
-        if s in seen:
-            continue
-        seen.add(s)
-        deduped.append(e)
-
-    # apply critic overrides
-    for e in deduped:
-        if e.get("slug") in OVERRIDES:
-            e["notes"] = (e.get("notes", "") + "  " + OVERRIDES[e["slug"]]).strip()
+    assert_unique_slugs(entries)
 
     # group
     groups = {}
-    for e in deduped:
+    for e in entries:
         title, fname = bucket_for(e)
         groups.setdefault((title, fname), []).append(e)
 
     ordered = [(t, f) for (t, f, _) in BUCKETS if (t, f) in groups]
 
     CATDIR.mkdir(parents=True, exist_ok=True)
-    today = date.today().isoformat()
-    (ROOT / "knowledge" / "sources" / ".built").write_text(today)  # hook age-check reads this
-    n = len(deduped)
-    hi = sum(1 for e in deduped if e.get("confidence") == "high")
+    built_path = ROOT / "knowledge" / "sources" / ".built"
+    if not built_path.exists():
+        raise SystemExit("Missing knowledge/sources/.built; run /flare-refresh after a true live-doc refresh.")
+    built = built_path.read_text().strip()
+    if not built:
+        raise SystemExit("Empty knowledge/sources/.built; write the real live-doc snapshot date before generating.")
+    n = len(entries)
+    hi = sum(1 for e in entries if e.get("confidence") == "high")
 
     # ---- INDEX.md ----
     idx = [
         "# Flarepilled — Cloudflare catalog index",
         "",
         f"> **{n} products** across {len(ordered)} categories · {hi} high-confidence · "
-        f"seeded {today} from `developers.cloudflare.com/llms.txt` + live per-product docs.",
+        f"seeded {built} from `developers.cloudflare.com/llms.txt` + live per-product docs.",
         ">",
-        "> **Confidence:** `high` = grounded in docs fetched at build time · `medium` = asserted, re-verify. "
-        "Treat every row as a hypothesis: re-check specifics (limits / pricing / bindings / API shape) against the "
-        "`cloudflare-docs` MCP before quoting. The deep entries live in `catalog/<category>.md`.",
+        "> **Catalog confidence:** `high` = docs/source-grounded at build time · `medium` = asserted or beta/unsettled, re-verify. "
+        "Final flare confidence also requires observed repo fit, maturity, and no blocker. Re-check specifics "
+        "(limits / pricing / bindings / API shape) against live docs before quoting. The deep entries live in `catalog/<category>.md`.",
         "",
     ]
     for title, fname in ordered:

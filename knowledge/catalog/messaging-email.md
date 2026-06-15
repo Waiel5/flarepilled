@@ -1,13 +1,13 @@
 # Messaging & Email
 
-_2 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+_3 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 ## Cloudflare Email Service
 `email-service` · Messaging & Email · confidence: `high` · lock-in: `sticky`
 
 **Is:** Send transactional email and route incoming email straight from a Worker, via REST, or over authenticated SMTP, with SPF/DKIM/DMARC handled during domain onboarding.
 
-**Replaces:** SendGrid / Postmark / Amazon SES (plus the separate inbound-parse webhook you'd wire up for replies)
+**Replaces:** SendGrid / Postmark / Amazon SES for outbound transactional email, plus ImprovMX / ForwardEmail / Google Workspace catch-all routing, inbound-parse webhooks, or IMAP polling glue for inbound routing and replies
 
 **Use it via:** Worker binding: wrangler.jsonc "send_email": [{ "name": "EMAIL", "remote": true }] (TOML: [[send_email]]); call env.EMAIL.send(message) -> { messageId }. Types from 'cloudflare:email': SendEmail, EmailMessage, EmailMessageBuilder, EmailAddress, Attachment, EmailSendResult. Legacy: new EmailMessage(from, to, rawMimeContent) with mimetext (import { createMimeMessage } from 'mimetext'). REST: POST https://api.cloudflare.com/client/v4/accounts/{account_id}/email/sending/send with Authorization: Bearer <token>, JSON body {to,from,subject,html,text,attachments[],headers}. Also authenticated SMTP (separate docs).
 
@@ -27,13 +27,13 @@ _2 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - nodemailer.createTransport / new SMTPTransport pointed at smtp.sendgrid.net, smtp.postmarkapp.com, email-smtp.*.amazonaws.com
 - transactional email code: sendWelcomeEmail / sendPasswordReset / sendOrderConfirmation helpers calling a third-party SDK
 - a Worker or app already on Cloudflare that shells out to an external email vendor instead of a binding
-- hand-rolled inbound email parsing: an MX-pointed mailbox + IMAP poller or a SendGrid/Mailgun inbound-parse webhook to handle replies
+- inbound forwarding/routing glue: ImprovMX, ForwardEmail, Google Workspace catch-all aliases, an MX-pointed mailbox + IMAP poller, or a SendGrid/Mailgun inbound-parse webhook to handle replies
 - manual DNS TXT records for SPF (v=spf1 include:sendgrid.net), DKIM selectors, _dmarc managed by hand
 - mimetext / mimekit / nodemailer used purely to build MIME bodies
 
 **Ideas:**
 - Replace the SendGrid/Postmark SDK in a Cloudflare Worker with the native env.EMAIL.send() binding so transactional mail leaves no external API key in the bundle
-- Route a support@ or replies@ address to a Worker that parses the inbound message and reply()s, killing the IMAP poller / inbound-parse webhook
+- Route a support@ or replies@ address to a Worker or destination mailbox, killing ImprovMX/ForwardEmail/catch-all aliases, IMAP polling, or inbound-parse webhook glue
 - Wire an AI agent (Agents SDK) to receive and answer email end-to-end on Cloudflare, with verified-destination sends free during development
 
 **Pairs with:** Workers (binding host for env.EMAIL.send and inbound email handlers), Agents SDK (email-driven AI agents that receive and reply), Email Routing (inbound side of the same product), Queues / Workflows (batch or retry outbound sends), Turnstile (gate signup before firing a verification email)
@@ -49,7 +49,7 @@ _2 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Sending Email is in beta
 - New accounts get a conservative daily quota that scales with sending behavior/deliverability; exact numbers not published — raise via Limit Increase Request Form
 
-**Notes:** Outbound Email Sending is beta and Workers-Paid-only — not a fit if you need a stable GA SLA today or are on the Free plan. Deliverability is governed by an opaque, behavior-based daily quota that ramps over time, so this is not a drop-in for high-volume blast/marketing sending without a limit-increase request; it's positioned for transactional mail. Domain must be onboarded with Cloudflare-managed SPF/DKIM/DMARC/MX, which is easiest when your DNS is already on Cloudflare. Moving off your current ESP means re-warming reputation. Could not verify exact daily/monthly hard caps (docs state they're dynamic) or full SMTP host/port/auth details (deferred to a separate SMTP page not fetched this run).  CRITIC FIX: inbound is a first-class feature, **Email Routing** (route to custom addresses / Workers / external destinations, with plus-addressing) — it replaces ImprovMX / ForwardEmail / Google Workspace catch-all routing, not 'just an inbound-parse webhook'. Outbound transactional sending is the other half.
+**Notes:** Outbound Email Sending is beta and Workers-Paid-only — not a fit if you need a stable GA SLA today or are on the Free plan. Deliverability is governed by an opaque, behavior-based daily quota that ramps over time, so this is not a drop-in for high-volume blast/marketing sending without a limit-increase request; it's positioned for transactional mail. Domain must be onboarded with Cloudflare-managed SPF/DKIM/DMARC/MX, which is easiest when your DNS is already on Cloudflare. Moving off your current ESP means re-warming reputation. Could not verify exact daily/monthly hard caps (docs state they're dynamic) or full SMTP host/port/auth details (deferred to a separate SMTP page not fetched this run).
 
 **Docs:** https://developers.cloudflare.com/email-service/llms.txt, https://developers.cloudflare.com/email-service/index.md, https://developers.cloudflare.com/email-service/get-started/send-emails/index.md, https://developers.cloudflare.com/email-service/api/send-emails/workers-api/index.md, https://developers.cloudflare.com/email-service/api/send-emails/rest-api/index.md, https://developers.cloudflare.com/email-service/platform/pricing/index.md, https://developers.cloudflare.com/email-service/platform/limits/index.md
 
@@ -112,5 +112,53 @@ _2 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 **Notes:** At-least-once delivery, not exactly-once — consumers must be idempotent; duplicate deliveries are possible. No strict FIFO/ordering guarantee, so do not use where total message order matters (Kafka/ordered-SQS-FIFO territory). Throughput caps at 5,000 msg/s per queue and 128 KB per message, so it is not a fit for high-volume streaming or large-payload pipelines (offload big bodies to R2 and enqueue a pointer). Push consumers must be Cloudflare Workers; only the HTTP pull-consumer path lets external/non-Cloudflare infra consume. Tied to the Cloudflare Workers platform — lock-in is the Workers ecosystem itself. Verified this run against live docs (overview, pricing, limits, JS API, wrangler config, pull consumers).
 
 **Docs:** https://developers.cloudflare.com/queues/index.md, https://developers.cloudflare.com/queues/platform/pricing/index.md, https://developers.cloudflare.com/queues/platform/limits/index.md, https://developers.cloudflare.com/queues/configuration/javascript-apis/index.md, https://developers.cloudflare.com/queues/configuration/configure-queues/index.md, https://developers.cloudflare.com/queues/configuration/pull-consumers/index.md
+
+---
+
+## Email Routing / Email Workers
+`email-routing-email-workers` · Messaging & Email / Email Routing · confidence: `high` · lock-in: `sticky`
+
+**Is:** Inbound email routing for Cloudflare-hosted domains: forward addresses to existing mailboxes or route messages into Workers that can inspect, forward, reject, or reply.
+
+**Replaces:** ImprovMX, ForwardEmail, Google Workspace catch-all routing, SendGrid/Mailgun inbound parse webhooks, MX mailboxes polled by IMAP, or tiny mail-forwarder services.
+
+**Use it via:** Dashboard: Compute > Email Service > Email Routing. Worker handler: export `async email(message, env, ctx)`, then call `await message.forward(dest)`, `await message.reply(emailMessage)`, or reject. Routing rules choose 'Send to an email' or 'Send to a Worker' for an address pattern.
+
+**Capabilities:**
+- Route incoming email for a domain to verified destination addresses
+- Route incoming email to Workers for custom processing
+- Email handler receives message.from, message.to, headers, raw body, and can forward/reply/reject
+- Cloudflare adds MX, SPF, and DKIM records during domain onboarding
+- Routing rules match local parts such as support@ or replies@
+- Destination addresses are account-level and reusable across domains
+- Works with Email Sending so Workers can receive and reply in one platform
+
+**Detection signals — the lens fires on these:**
+- ImprovMX, ForwardEmail, mailbox.org catch-all, Google Workspace routing rules, or MX records pointed at a forwarding service
+- SendGrid/Mailgun/Postmark inbound parse webhooks
+- IMAP polling daemons, mailbox parsers, or cron jobs reading support/replies mailboxes
+- Webhook endpoints named inbound-email, parse-email, reply-handler, support-email, or mailgun/events
+- DNS MX/TXT records managed by hand only for mail forwarding/replies
+- A Worker already handles support/ticket/agent logic but inbound email arrives through an external forwarding vendor
+
+**Ideas:**
+- Route support@ or replies@ directly to a Worker and delete the inbound-parse webhook plus IMAP polling daemon.
+- Forward simple aliases to verified destination addresses with Email Routing instead of paying a forwarding SaaS.
+- For AI agents, receive mail in an Email Worker, decide with Workers AI/Agents, and reply through Email Service.
+
+**Pairs with:** Cloudflare Email Service (outbound sending), Workers, Agents SDK, Queues / Workflows, Turnstile, D1 / R2 for ticket/message storage
+
+**Pricing:** Email Routing inbound forwarding is available on Free and Paid plans with no overage per current docs; outbound Email Sending is a separate beta feature on Workers Paid. Verify current routing limits before quoting.
+
+**Limits:**
+- You must use Cloudflare DNS for the domain
+- DNS propagation for MX/TXT records can take up to 24 hours, usually 5-15 minutes on Cloudflare DNS
+- Destination addresses must be verified before use
+- Email Routing rules and destination-address limits apply per docs
+- Outbound Email Sending is beta and Workers-Paid-only; do not conflate it with inbound routing
+
+**Notes:** This split entry exists because 'Email Service' reads like outbound ESP replacement, while many repos have a separate inbound-routing smell. Use this entry for forwarding/reply parsing; use the Email Service entry for transactional sending.
+
+**Docs:** https://developers.cloudflare.com/email-service/llms.txt, https://developers.cloudflare.com/email-service/get-started/route-emails/index.md, https://developers.cloudflare.com/email-service/api/route-emails/email-handler/index.md, https://developers.cloudflare.com/email-service/configuration/email-routing-addresses/index.md, https://developers.cloudflare.com/email-service/platform/limits/index.md
 
 ---

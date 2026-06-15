@@ -109,7 +109,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - AI Search: fully managed RAG pipelines (ingest -> embed -> retrieve -> generate)
 - Vectorize: store/query high-dimensional embeddings as a vector database
 - Agents: build stateful AI agents (state persistence, tool/external-service calls)
-- Browser Rendering: headless browser instances for AI data extraction
+- Browser Run: headless browser instances for AI data extraction
 - Sandbox SDK / Dynamic Workers: spin up isolated on-demand code execution for agents
 - AI Crawl Control: analyze and control third-party AI crawlers hitting your site
 
@@ -119,13 +119,13 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - pinecone-client / weaviate-client / @pinecone-database/pinecone / pgvector + an embeddings cron (could be Vectorize + AI Search)
 - self-hosted RAG: a chunk/embed/upsert ingestion script feeding a vector store
 - replicate / huggingface_hub / runpod / modal for GPU inference (could be Workers AI)
-- puppeteer / playwright running in a container for scraping (could be Browser Rendering)
+- puppeteer / playwright running in a container for scraping (could be Browser Run)
 - a hand-rolled 'llm-gateway' / 'ai-proxy' service doing token rate-limits and response caching
 
 **Ideas:**
 - Front existing OpenAI/Anthropic calls with AI Gateway to get caching, spend limits, and per-app analytics without changing model providers
 - Replace a self-hosted pgvector + embeddings cron with Vectorize + AI Search for a managed RAG pipeline
-- Move Puppeteer scraping jobs onto Browser Rendering so agents can extract page data without running your own headless-Chrome fleet
+- Move Puppeteer scraping jobs onto Browser Run so agents can extract page data without running your own headless-Chrome fleet
 
 **Pairs with:** Workers AI, Vectorize, AI Gateway, AI Search, Agents SDK, Durable Objects
 
@@ -239,9 +239,9 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Add a 'chat with our docs' / knowledge-base assistant: use the OpenAI-compatible chat/completions endpoint so existing OpenAI SDK code keeps working but answers are grounded in your content with cited chunks.
 - Give an AI agent retrieval + memory by attaching the per-instance MCP endpoint, or do per-tenant document search by mapping each customer to a namespace instance and querying by instance_ids.
 
-**Pairs with:** R2 (object store that holds the source documents to index — zero egress), Workers AI (supplies the Markdown conversion, embedding models, and the generation/query-rewrite LLMs), Vectorize (the underlying vector index for legacy instances), AI Gateway (observability/caching/rate-limiting over the model calls), Workers / Agents SDK (consume search via binding; MCP endpoint plugs into agent tool use), Browser Rendering (used for crawling website data sources)
+**Pairs with:** R2 (object store that holds the source documents to index — zero egress), Workers AI (supplies the Markdown conversion, embedding models, and the generation/query-rewrite LLMs), Vectorize (the underlying vector index for legacy instances), AI Gateway (observability/caching/rate-limiting over the model calls), Workers / Agents SDK (consume search via binding; MCP endpoint plugs into agent tool use), Browser Run (used for crawling website data sources)
 
-**Pricing:** Free during open beta within plan limits. New instances (after 2026-04-16): AI Search itself is free; Workers AI and AI Gateway usage billed separately. Legacy instances: you pay only for the underlying components — R2, Vectorize, Workers AI, AI Gateway, Browser Rendering. Cloudflare says billing details will be announced 30+ days before any charges begin. Free plan caps: 100 instances, 100k files/instance, 20k queries/mo, 500 pages crawled/day. Paid plan: 5,000 instances, up to 1M files/instance (500k for hybrid), unlimited queries. (verify — drifts)
+**Pricing:** Free during open beta within plan limits. New instances (after 2026-04-16): AI Search itself is free; Workers AI and AI Gateway usage billed separately. Legacy instances: you pay only for the underlying components — R2, Vectorize, Workers AI, AI Gateway, Browser Run. Cloudflare says billing details will be announced 30+ days before any charges begin. Free plan caps: 100 instances, 100k files/instance, 20k queries/mo, 500 pages crawled/day. Paid plan: 5,000 instances, up to 1M files/instance (500k for hybrid), unlimited queries. (verify — drifts)
 
 **Limits:**
 - Max file size: 4 MB — larger files are skipped and logged as errors
@@ -291,7 +291,7 @@ _8 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Build a human-in-the-loop agent (long-running task that pauses for approval) using persistent state + scheduled wake-ups instead of an always-on worker process
 - Expose agent actions to a front-end with @callable() methods and live this.state sync instead of building a REST+websocket protocol by hand
 
-**Pairs with:** Workers AI / Workers AI gateway or OpenAI/Anthropic for the model calls, Durable Objects (Agents is built directly on them), Vectorize (RAG / long-term semantic memory beyond per-agent SQLite), Workflows (deterministic multi-step orchestration alongside adaptive agents), Browser Rendering and AI Search as agent tools, MCP servers (build with McpAgent) for tool access, Email Routing / Email Sending via onEmail for email-driven agents
+**Pairs with:** Workers AI / Workers AI gateway or OpenAI/Anthropic for the model calls, Durable Objects (Agents is built directly on them), Vectorize (RAG / long-term semantic memory beyond per-agent SQLite), Workflows (deterministic multi-step orchestration alongside adaptive agents), Browser Run and AI Search as agent tools, MCP servers (build with McpAgent) for tool access, Email Routing / Email Sending via onEmail for email-driven agents
 
 **Pricing:** No standalone Agents price; an Agent instance is a Durable Object, so you pay the Workers Paid plan ($5/mo base) plus Durable Objects usage — billed on requests + active compute duration — while idle/hibernating agents incur no compute charge. SQLite-backed state counts toward Durable Objects storage. Free Workers plan can run small experiments but production needs the paid plan. (verify — drifts)
 

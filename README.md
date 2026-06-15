@@ -40,9 +40,10 @@ Same north star: *the cheapest system to own is the one you never had to maintai
 Cloudflare is **not always the answer**, and this plugin is built to say so.
 
 - Every suggestion names its **catch** (lock-in, egress/data-gravity, limits, cost).
-- **Confidence is explicit:** `high` = verified against live docs this turn · `medium` =
-  catalogued (grounded at build time, unverified) · `speculative` = an idea. An
-  unverified relay never quotes a specific limit or price.
+- **Confidence is explicit:** `high` = live docs verified this turn **and** repo fit
+  observed with no unresolved blocker; `medium` = catalogued/docs-only verified or fit
+  inferred; `speculative` = an idea. An unverified relay never quotes a specific limit
+  or price.
 - The catalog is **dated**; Cloudflare ships fast. Before quoting any limit, price,
   binding, or API shape, the lens **re-verifies against the `cloudflare-docs` MCP**.
   The catalog is a map, not the territory.
@@ -76,7 +77,7 @@ The lens verifies specifics against the `cloudflare-docs` MCP before asserting, 
 `/flare-refresh` diffs Cloudflare's canonical `llms.txt` to surface drift. Full
 procedure + canonical links: [`knowledge/FRESHNESS.md`](knowledge/FRESHNESS.md).
 
-- **Catalog:** **112 products across 12 categories** (108 high-confidence), each
+- **Catalog:** **124 products across 12 categories** (118 high-confidence), each
   researched against its live `llms.txt` — the full AI suite, the Zero Trust / SASE
   sub-products (Access, Gateway, CASB, DLP, Email Security, DEX), and the Rules family
   included.
@@ -88,6 +89,6 @@ See [`docs/DESIGN.md`](docs/DESIGN.md) for the full design.
 
 ---
 
-*Status: v0.1 (early). Lens + commands + a 112-product knowledge base live; loudness
+*Status: v0.1 (early). Lens + commands + a 124-product knowledge base live; loudness
 persists; the catalog self-flags when stale. Intentionally lazy where it can be
 (`flarepilled:`). Built to grow.*

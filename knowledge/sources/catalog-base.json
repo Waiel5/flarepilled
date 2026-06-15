@@ -11,7 +11,7 @@
       "Standard fetch(request, env, ctx) handler model; also supports Cron Triggers, Queue consumers, and Durable Object alarms as entry points",
       "Runs on Cloudflare's global network (thousands of machines across hundreds of locations) — code executes in whichever data center receives the request, no region to pick",
       "Languages: JavaScript, TypeScript, Python, Rust, and WebAssembly",
-      "24+ binding types wire the Worker to the rest of the platform (KV, R2, D1, Durable Objects, Queues, Workers AI, Vectorize, Hyperdrive, Service bindings, Workflows, Browser Rendering, Images) with the credential embedded in the binding — the secret is never exposed to code",
+      "24+ binding types wire the Worker to the rest of the platform (KV, R2, D1, Durable Objects, Queues, Workers AI, Vectorize, Hyperdrive, Service bindings, Workflows, Browser Run, Images) with the credential embedded in the binding — the secret is never exposed to code",
       "No charge or limit for wall-clock duration and zero egress/bandwidth fees; ctx.waitUntil() extends work up to 30s after the response",
       "Static asset serving is free and unlimited; subrequests don't count against request totals"
     ],
@@ -43,7 +43,7 @@
       "CPU time: 10 ms/request (Free) vs default 30s, max 5 min/request (Paid); 15 min for Cron Triggers / Queue consumers / Durable Object alarms",
       "Memory: 128 MB per isolate (JS heap + WASM combined) on both plans",
       "Worker size: 3 MB compressed (Free) / 10 MB compressed (Paid); up to 64 MB uncompressed",
-      "Subrequests: 50/request (Free) vs 10,000/request (Paid, expandable up to 10M)",
+      "Subrequests: Free 50 external subrequests/request plus 1,000 internal Cloudflare-service subrequests; Paid 10,000/request by default, configurable up to 10M",
       "Workers per account: 100 (Free) / 500 (Paid)",
       "Env vars: 64/Worker (Free) / 128/Worker (Paid), 5 KB size limit each",
       "Daily requests capped at 100,000 on Free (resets midnight UTC); no daily cap on Paid",
@@ -78,7 +78,7 @@
       "Framework auto-detection and guides (React, Next.js, Astro, Hugo, SvelteKit, Remix, etc.)",
       "Static assets served free and unlimited from the edge CDN with automatic cache",
       "_headers and _redirects files for declarative header/redirect rules",
-      "Full Cloudflare bindings available to Functions: KV, D1, R2, Durable Objects, Vectorize, Workers AI, Queues, Hyperdrive, Service bindings, Analytics Engine, secrets/vars",
+      "Pages Functions support a documented subset of bindings: KV, D1, R2, Vectorize, Workers AI, Hyperdrive, Service bindings, Analytics Engine, vars/secrets, Queue producer bindings, and Durable Object bindings to an existing namespace from a separate Worker",
       "Custom domains with automatic TLS (100 on Free, up to 500 Enterprise)"
     ],
     "apiSurface": "Deploy via git push, `npx wrangler pages deploy <dir>`, or `npm create cloudflare@latest` (C3). Functions live in a `functions/` dir and export `onRequest`/`onRequestGet` handlers receiving a `context` with `context.env.<BINDING>` and `context.params`. Bindings declared in `wrangler.toml`/`wrangler.jsonc` (keys: `kv_namespaces`, `d1_databases`, `r2_buckets`, `durable_objects`, `vectorize_indexes`, `ai`, `service_bindings`, `queues.producers`, `hyperdrive`, `analytics_engine_datasets`, `vars`) or in dashboard Settings > Bindings. Local dev: `npx wrangler pages dev <output_dir>`.",
@@ -123,7 +123,7 @@
       "KV (sessions, edge config, cache)",
       "R2 (user uploads / static media, zero egress)",
       "Workers AI + Vectorize (AI features and RAG from Functions)",
-      "Durable Objects (only via Workers — a reason to migrate)",
+      "Durable Objects (bindings can target an existing namespace created/deployed by a separate Worker; authoring the Durable Object class itself remains a Workers concern)",
       "Hyperdrive (connect Functions to existing Postgres/MySQL)"
     ],
     "notes": "Honest caveats: (1) Cloudflare is steering new full-stack work toward Workers Static Assets, not Pages. The migrate-from-pages guide states Workers has a 'distinctly broader set of features' — Durable Objects, Cron Triggers, Email Workers, Queue Consumers, Logpush, Tail Workers, Source Maps, fuller Observability are Workers-only and NOT available to Pages Functions. For a greenfield app needing any of those, recommend Workers with static assets over Pages; Pages remains excellent for git-driven static/SSR sites and existing Pages projects. (2) Cost is NOT 'free static hosting' end-to-end — only static assets are free; dynamic Functions traffic bills exactly like Workers, so a function-heavy app is priced as a Workers app, not as free CDN hosting. (3) Build minutes are gated by a monthly build COUNT (not minutes) with a hard 20-min per-build timeout; very long monorepo builds can hit it. (4) Lock-in: Functions' binding model (context.env, wrangler config) is Cloudflare-specific; framework adapters (@cloudflare/next-on-pages, @astrojs/cloudflare) ease but don't eliminate portability cost. (5) Could not verify exact paid per-request/CPU rates from the Pages pricing page — it defers to the Workers Standard usage model; confirm current Workers pricing separately."
@@ -143,7 +143,7 @@
       "Event notifications -> Queues, so writes/deletes can trigger Workers (thumbnailing, indexing, ETL)",
       "Standard + Infrequent Access storage classes ($0.01/GB-mo + $0.01/GB retrieval) and lifecycle rules",
       "Jurisdictional Restrictions (EU, FedRAMP) and Location Hints for data residency / placement",
-      "Bucket locks (object-lock / WORM-style retention) for compliance and ransomware protection",
+      "Cloudflare-native bucket locks for WORM-style retention; not S3 Object Lock API/header compatible, and S3 bucket versioning APIs remain unimplemented",
       "Migration tooling: Super Slurper (bulk one-time copy from S3/GCS/MinIO/Wasabi/B2/DO Spaces) and Sippy (incremental, copy-on-read migration)",
       "R2 Data Catalog: managed Apache Iceberg REST catalog built into the bucket; query with R2 SQL, Spark, Snowflake, DuckDB, Trino, PyIceberg"
     ],
@@ -189,7 +189,7 @@
       "R2 Data Catalog + R2 SQL / Pipelines (Iceberg analytics over data in R2)",
       "Cache / CDN + custom domains (public asset delivery)"
     ],
-    "notes": "Egress is free directly from R2, but other Cloudflare services layered on top can still meter (e.g. Images transformations). Vendor lock-in is modest at the API layer (S3-compatible, so SDKs port back out), but jurisdiction is immutable once a bucket is created and the deeper features (Workers binding, Data Catalog, event notifications) are Cloudflare-specific. Not a database or a filesystem: no in-place partial writes/appends, no POSIX semantics, ~1 write/sec per key, eventual-ish for high-churn keys — wrong tool for hot mutable state (use D1/KV/Durable Objects). Several adjacent pieces (R2 Data Catalog, R2 SQL) are recent/beta-era; confirm GA status and current pricing before relying on them. Object-size and single-part numbers are documented as 5 TiB / 5 GiB but are precisely ~4.995 — verify against current limits page.",
+    "notes": "Egress is free directly from R2, but other Cloudflare services layered on top can still meter (e.g. Images transformations). Vendor lock-in is modest at the API layer (S3-compatible, so SDKs port back out), but jurisdiction is immutable once a bucket is created and the deeper features (Workers binding, Data Catalog, event notifications) are Cloudflare-specific. Not a database or a filesystem: no in-place partial writes/appends, no POSIX semantics; direct Workers/S3 API operations are strongly globally consistent, but same-key writes are limited to about 1/sec, concurrent writes are last-writer-wins, and cached custom-domain/CDN responses can be stale until TTL/purge — wrong tool for hot mutable state (use D1/KV/Durable Objects). Several adjacent pieces (R2 Data Catalog, R2 SQL) are recent/beta-era; confirm GA status and current pricing before relying on them. Object-size and single-part numbers are documented as 5 TiB / 5 GiB but are precisely ~4.995 — verify against current limits page.",
     "tags": [
       "object-storage",
       "s3-compatible",
@@ -328,14 +328,14 @@
     "name": "Cloudflare D1",
     "category": "Database",
     "tier": 1,
-    "oneLiner": "Cloudflare's managed, serverless SQLite-semantics database queried directly from Workers and Pages via a binding or HTTP API, with point-in-time recovery and global read replication.",
+    "oneLiner": "Cloudflare's managed, serverless SQLite-semantics database queried directly from Workers and Pages via a binding or HTTP API, with point-in-time recovery and beta global read replication via Sessions.",
     "replaces": "A managed Postgres/MySQL instance (RDS, Neon, PlanetScale, Supabase) plus its connection-pooling layer — or a self-hosted SQLite/libSQL box — for a Workers-resident app backend.",
     "capabilities": [
       "Serverless relational SQL database with SQLite SQL semantics, no connection strings or pooling to manage",
       "Direct Worker/Pages binding (env.DB) plus prepared statements with parameter binding",
       "Batch transactions (db.batch([...])) and raw SQL exec for migrations/bulk DDL",
       "Time Travel: point-in-time restore to any minute within the last 30 days (built-in disaster recovery)",
-      "Global read replication via the Sessions API (db.withSession()) to cut read latency across regions",
+      "Beta global read replication via the Sessions API (db.withSession()) to cut read latency across regions while preserving session consistency",
       "Create thousands of isolated databases per account at no extra cost (per-tenant / per-customer DB-per-user patterns)",
       "Import/export of SQL and bulk data; query from dashboard, Wrangler CLI, or REST",
       "Billed only on queries (rows read/written) and storage — idle databases cost only storage"
@@ -354,7 +354,7 @@
     "ideaPrompts": [
       "Move a Workers app's relational data off an external Postgres/Neon instance into D1 to kill the connection string, pooling layer, and cross-region read latency.",
       "Use database-per-tenant (thousands of free isolated D1 DBs) for a multi-tenant SaaS or a vibe-coding/app-builder platform instead of row-level tenant isolation in one big DB.",
-      "Replace a nightly SQL-dump backup cron with built-in Time Travel 30-day point-in-time restore, and add read replicas via the Sessions API for read-heavy endpoints."
+      "Replace a nightly SQL-dump backup cron with built-in Time Travel 30-day point-in-time restore; for read-heavy endpoints, evaluate beta read replicas through the Sessions API rather than assuming default global reads."
     ],
     "docs": [
       "https://developers.cloudflare.com/d1/llms.txt",
@@ -362,7 +362,9 @@
       "https://developers.cloudflare.com/d1/platform/pricing/index.md",
       "https://developers.cloudflare.com/d1/platform/limits/index.md",
       "https://developers.cloudflare.com/d1/worker-api/index.md",
-      "https://developers.cloudflare.com/d1/get-started/index.md"
+      "https://developers.cloudflare.com/d1/get-started/index.md",
+      "https://developers.cloudflare.com/d1/best-practices/read-replication/index.md",
+      "https://developers.cloudflare.com/changelog/post/2025-04-10-d1-read-replication-beta/"
     ],
     "confidence": "high",
     "tier_rationale": "Core Cloudflare storage primitive, first-party Worker binding, the default relational DB for any Workers/Pages backend.",
@@ -385,7 +387,7 @@
       "Drizzle ORM / Kysely / Prisma (D1 adapters)"
     ],
     "replaces_detail": "Managed Postgres/MySQL (RDS, Neon, PlanetScale, Supabase) or a self-hosted SQLite/libSQL server for a Workers app backend.",
-    "notes": "SQLite semantics, not Postgres — no native pgvector, limited concurrent-write throughput, single-primary writes (replicas are read-only and eventually consistent). The 10 GB hard per-database cap is non-increasable, so very large single datasets must shard across databases or live elsewhere. 2 MB max row/BLOB size means large files belong in R2. Lock-in: data lives in Cloudflare and is reached via the Worker binding / D1 REST API; portability is eased by standard SQLite SQL + export, but app code couples to the binding. If you need to keep an existing external SQL database, Hyperdrive (not D1) is the right tool. Read-replication and per-row billing model verified from pricing/limits pages fetched this run."
+    "notes": "SQLite semantics, not Postgres — no native pgvector, limited concurrent-write throughput, single-primary writes. Read replication is public beta/opt-in: without the Sessions API/bookmarks, normal queries do not give a magic read-your-writes edge cache. The 10 GB hard per-database cap is non-increasable, so very large single datasets must shard across databases or live elsewhere. 2 MB max row/BLOB size means large files belong in R2. Lock-in: data lives in Cloudflare and is reached via the Worker binding / D1 REST API; portability is eased by standard SQLite SQL + export, but app code couples to the binding. If you need to keep an existing external SQL database, Hyperdrive (not D1) is the right tool. Read-replication caveat and per-row billing model verified from live docs."
   },
   {
     "slug": "durable-objects",
@@ -524,11 +526,12 @@
       "step.waitForEvent() blocks a running instance until an external event (webhook, approval, callback) arrives — default 24h timeout, enables human-in-the-loop",
       "Instance lifecycle control: create, get/status, pause, resume, restart, terminate, sendEvent",
       "Triggerable from a Worker fetch handler, a Cron Trigger (scheduled handler), a Queue consumer, the REST API, wrangler CLI, a Durable Object, or another Workflow (child workflows)",
+      "Workflow bindings can define `schedules` directly so recurring Workflow instances start without a separate scheduled Worker handler",
       "Waiting instances (sleeping/retrying/awaiting events) do not consume concurrency slots — millions can wait at once",
       "Python Workflows SDK in addition to TypeScript, including a DAG style",
       "Built-in observability for instance state, and status values: queued/running/paused/errored/terminated/complete/waiting/unknown"
     ],
-    "apiSurface": "Worker binding declared in wrangler.jsonc/.toml as [[workflows]] with name, binding (e.g. MY_WORKFLOW), class_name, and optional script_name for cross-script calls. Logic lives in a class extending WorkflowEntrypoint<Env, Params> with async run(event, step) using step.do(name, cb), step.sleep(name, duration), step.sleepUntil(name, ts), step.waitForEvent(name, {type, timeout}). Drive instances from a Worker via env.MY_WORKFLOW.create({id, params}), env.MY_WORKFLOW.get(id) then .status()/.pause()/.resume()/.restart()/.terminate()/.sendEvent(). Also exposed via REST API under /accounts/{account_id}/workflows/... (instances create/list endpoints) and the wrangler workflows CLI. Python SDK available.",
+    "apiSurface": "Worker binding declared in wrangler.jsonc/.toml as [[workflows]] with name, binding (e.g. MY_WORKFLOW), class_name, optional script_name for cross-script calls, and optional schedules (cron expressions) for direct recurring Workflow creation. Logic lives in a class extending WorkflowEntrypoint<Env, Params> with async run(event, step) using step.do(name, cb), step.sleep(name, duration), step.sleepUntil(name, ts), step.waitForEvent(name, {type, timeout}). Drive instances from a Worker via env.MY_WORKFLOW.create({id, params}), env.MY_WORKFLOW.get(id) then .status()/.pause()/.resume()/.restart()/.terminate()/.sendEvent(). Also exposed via REST API under /accounts/{account_id}/workflows/... (instances create/list endpoints) and the wrangler workflows CLI. Python SDK available.",
     "detectionSignals": [
       "npm deps: bullmq, bee-queue, agenda, kue, graphile-worker, pg-boss, node-resque",
       "Python deps: celery, rq, dramatiq, apscheduler, prefect, dagster, airflow/apache-airflow, temporalio",
@@ -537,6 +540,7 @@
       "A DB table named jobs/tasks/workflow_state/saga_state/job_runs with columns like status, current_step, attempts/retry_count, next_run_at, idempotency_key, last_error",
       "Redis used as a job broker: REDIS_URL alongside worker/consumer processes, *.process()/.add() job queue calls",
       "Cron jobs (node-cron, a Kubernetes CronJob, or a Cloudflare scheduled handler) that scan for 'stuck' or 'pending' rows and retry them — a hand-rolled retry loop",
+      "A periodic multi-step job that uses Cron only to kick off a stateful pipeline — use Workflows `schedules` directly when the durable unit is the Workflow",
       "Hand-written exponential-backoff/retry helpers wrapping external API calls (retry(fn, {attempts, backoff}), p-retry)",
       "Long-running orchestration that must outlive a single request: multi-step onboarding, trial-expiry/dunning emails, ETL/data pipelines, AI agent pipelines with approval gates, order/payment sagas",
       "Idempotency-key plumbing added specifically to make re-runnable side effects safe",
@@ -553,7 +557,8 @@
       "https://developers.cloudflare.com/workflows/reference/pricing/index.md",
       "https://developers.cloudflare.com/workflows/reference/limits/index.md",
       "https://developers.cloudflare.com/workflows/build/workers-api/index.md",
-      "https://developers.cloudflare.com/workflows/build/trigger-workflows/index.md"
+      "https://developers.cloudflare.com/workflows/build/trigger-workflows/index.md",
+      "https://developers.cloudflare.com/changelog/post/2026-06-02-cron-workflows/"
     ],
     "pricing": "No separate plan: Workflows are billed as Workers and share the same CPU-time and request SKUs. Free plan: included with Workers Free — 100,000 requests/day (shared with Workers), 10 ms CPU per invocation, 1 GB storage. Workers Paid: 10M requests/mo then $0.30/additional million; 30M CPU-ms/mo then $0.02/additional million; 1 GB storage/mo then $0.20/GB-month (storage billing began Sep 15, 2025). Steps are NOT billed separately, and idle time (step.sleep, waiting on events/APIs) incurs no CPU charge. (verify — drifts)",
     "limits": [
@@ -576,7 +581,7 @@
       "Durable Objects (Workflows build on the same durable primitives; trigger from within a DO)",
       "R2 / D1 / KV (read/write durable data inside steps; the canonical example fetches from R2)",
       "Workers AI / AI Gateway (multi-step AI/agent pipelines with retries and approval gates)",
-      "Cron Triggers (kick off scheduled Workflow runs from a scheduled handler)",
+      "Cron Triggers (only when the schedule is a plain Worker job; use Workflows `schedules` for recurring Workflow instances)",
       "Email Routing / Email Sending (lifecycle email sequences as workflow steps)"
     ],
     "notes": "Platform lock-in: the WorkflowEntrypoint/step.* programming model is Cloudflare-specific (closest analog is Temporal/Step Functions), so porting off later means a rewrite, not a config change. The 10 ms CPU-per-step cap on the Free plan is tiny — real workloads need Workers Paid. Steps must be deterministic-ish and idempotent: a step can re-run on retry, and only structured-cloneable results ≤1 MiB persist between steps, so it is NOT a drop-in for in-memory job logic that passes huge blobs around (stream those instead). Not the right tool for sub-second synchronous request/response work (just use a Worker) or for high-throughput stream processing (use Queues/Pipelines). Heavy compute per step still bills as Workers CPU. I did not fetch the exact REST endpoint paths or wrangler CLI subcommand strings (the trigger page deferred to other docs), so those surface details are described by shape rather than verbatim; everything else is grounded in the pages fetched this run."
@@ -994,7 +999,7 @@
       "https://developers.cloudflare.com/ai-search/api/search/workers-binding/index.md",
       "https://developers.cloudflare.com/ai-search/api/search/rest-api/index.md"
     ],
-    "pricing": "Free during open beta within plan limits. New instances (after 2026-04-16): AI Search itself is free; Workers AI and AI Gateway usage billed separately. Legacy instances: you pay only for the underlying components — R2, Vectorize, Workers AI, AI Gateway, Browser Rendering. Cloudflare says billing details will be announced 30+ days before any charges begin. Free plan caps: 100 instances, 100k files/instance, 20k queries/mo, 500 pages crawled/day. Paid plan: 5,000 instances, up to 1M files/instance (500k for hybrid), unlimited queries. (verify — drifts)",
+    "pricing": "Free during open beta within plan limits. New instances (after 2026-04-16): AI Search itself is free; Workers AI and AI Gateway usage billed separately. Legacy instances: you pay only for the underlying components — R2, Vectorize, Workers AI, AI Gateway, Browser Run. Cloudflare says billing details will be announced 30+ days before any charges begin. Free plan caps: 100 instances, 100k files/instance, 20k queries/mo, 500 pages crawled/day. Paid plan: 5,000 instances, up to 1M files/instance (500k for hybrid), unlimited queries. (verify — drifts)",
     "limits": [
       "Max file size: 4 MB — larger files are skipped and logged as errors",
       "Free plan: 100 instances/account, 100,000 files/instance, 20,000 queries/month, 500 pages crawled/day, 5 custom metadata fields, 500-char metadata values",
@@ -1009,7 +1014,7 @@
       "Vectorize (the underlying vector index for legacy instances)",
       "AI Gateway (observability/caching/rate-limiting over the model calls)",
       "Workers / Agents SDK (consume search via binding; MCP endpoint plugs into agent tool use)",
-      "Browser Rendering (used for crawling website data sources)"
+      "Browser Run (used for crawling website data sources)"
     ],
     "replacesVendors": "Pinecone, Weaviate, Qdrant, Chroma, self-hosted pgvector, plus managed RAG/'chat-with-docs' SaaS",
     "notes": "Honest caveats: (1) This is the rebranded/evolved successor to what Cloudflare previously shipped as AutoRAG — older code, blog posts, and bindings may still say 'AutoRAG'; the current docs use 'AI Search' and the ai_search / ai_search_namespaces binding keys. I did not find the string 'AutoRAG' in the pages fetched this run, so treat the rename as inferred from product shape, not confirmed verbatim. (2) Open beta: free-but-undefined pricing is a real planning risk — the eventual paid model is unannounced, and legacy vs new instances bill differently. (3) Lock-in: ingestion, chunking, embedding-model choice, retrieval, and the MCP endpoint are all Cloudflare-managed, so you trade the flexibility of a custom pipeline (custom chunkers, arbitrary embedding models, your own reranker) for convenience. If you need a specific embedding model, exotic chunking, or a vector store you can query with raw SQL/filters, raw Vectorize + Workers AI (or your own stack) is the better fit. (4) The 4 MB per-file cap means very large PDFs must be pre-split. (5) Source content realistically needs to live in R2 or a crawlable site you own; it is not a general connector hub (no native Notion/Google Drive/Confluence sources listed).",
@@ -1071,7 +1076,7 @@
       "Durable Objects (Agents is built directly on them)",
       "Vectorize (RAG / long-term semantic memory beyond per-agent SQLite)",
       "Workflows (deterministic multi-step orchestration alongside adaptive agents)",
-      "Browser Rendering and AI Search as agent tools",
+      "Browser Run and AI Search as agent tools",
       "MCP servers (build with McpAgent) for tool access",
       "Email Routing / Email Sending via onEmail for email-driven agents"
     ],
@@ -1389,7 +1394,7 @@
     "tier": 1,
     "confidence": "high",
     "oneLiner": "Send transactional email and route incoming email straight from a Worker, via REST, or over authenticated SMTP, with SPF/DKIM/DMARC handled during domain onboarding.",
-    "replaces": "SendGrid / Postmark / Amazon SES (plus the separate inbound-parse webhook you'd wire up for replies)",
+    "replaces": "SendGrid / Postmark / Amazon SES for outbound transactional email, plus ImprovMX / ForwardEmail / Google Workspace catch-all routing, inbound-parse webhooks, or IMAP polling glue for inbound routing and replies",
     "capabilities": [
       "Outbound transactional email (Email Sending, beta, Workers Paid) for welcome/password-reset/order-confirmation flows",
       "Inbound email routing (Email Routing) to a Worker or destination mailbox, unlimited on Free and Paid",
@@ -1407,13 +1412,13 @@
       "nodemailer.createTransport / new SMTPTransport pointed at smtp.sendgrid.net, smtp.postmarkapp.com, email-smtp.*.amazonaws.com",
       "transactional email code: sendWelcomeEmail / sendPasswordReset / sendOrderConfirmation helpers calling a third-party SDK",
       "a Worker or app already on Cloudflare that shells out to an external email vendor instead of a binding",
-      "hand-rolled inbound email parsing: an MX-pointed mailbox + IMAP poller or a SendGrid/Mailgun inbound-parse webhook to handle replies",
+      "inbound forwarding/routing glue: ImprovMX, ForwardEmail, Google Workspace catch-all aliases, an MX-pointed mailbox + IMAP poller, or a SendGrid/Mailgun inbound-parse webhook to handle replies",
       "manual DNS TXT records for SPF (v=spf1 include:sendgrid.net), DKIM selectors, _dmarc managed by hand",
       "mimetext / mimekit / nodemailer used purely to build MIME bodies"
     ],
     "ideaPrompts": [
       "Replace the SendGrid/Postmark SDK in a Cloudflare Worker with the native env.EMAIL.send() binding so transactional mail leaves no external API key in the bundle",
-      "Route a support@ or replies@ address to a Worker that parses the inbound message and reply()s, killing the IMAP poller / inbound-parse webhook",
+      "Route a support@ or replies@ address to a Worker or destination mailbox, killing ImprovMX/ForwardEmail/catch-all aliases, IMAP polling, or inbound-parse webhook glue",
       "Wire an AI agent (Agents SDK) to receive and answer email end-to-end on Cloudflare, with verified-destination sends free during development"
     ],
     "docs": [
@@ -1687,12 +1692,14 @@
       "Connectivity established by Cloudflare Tunnel using the cloudflared connector from your private network outbound to Cloudflare (no inbound ports opened)",
       "Terraform-manageable VPC Services"
     ],
-    "apiSurface": "Worker binding. wrangler.jsonc key: \"vpc_services\": [{ \"binding\": \"PRIVATE_API\", \"service_id\": \"<uuid>\", \"remote\": true }]. In code: await env.PRIVATE_API.fetch(new Request(\"http://internal-api.company.local/users\")) (absolute URL with protocol+host+path required; standard RequestInit options). Provision via CLI: `npx wrangler vpc service create my-private-api --type http --tunnel-id <id> --hostname <host>` or `... --type tcp --tcp-port 5432 --app-protocol postgresql --tunnel-id <id> --ipv4 <addr>`. Also a REST API under /connectivity/directory/services and `wrangler vpc` commands. Tunnel side runs cloudflared. For DBs, pair with Hyperdrive binding (env.HYPERDRIVE.connectionString).",
+    "apiSurface": "Worker binding. For one fixed target, wrangler.jsonc key: \"vpc_services\": [{ \"binding\": \"PRIVATE_API\", \"service_id\": \"<uuid>\", \"remote\": true }]. For broad private-network reachability, use \"vpc_networks\": [{ \"binding\": \"PRIVATE_NETWORK\", \"network_id\": \"cf1:network\", \"remote\": true }] to reach Cloudflare Mesh nodes, Tunnel routes, and Cloudflare WAN on-ramps. In code: await env.PRIVATE_API.fetch(new Request(\"http://internal-api.company.local/users\")) or env.PRIVATE_NETWORK.fetch(\"http://10.50.0.100:8080/api\") (absolute URL controls destination). Provision VPC Services via `npx wrangler vpc service create my-private-api --type http --tunnel-id <id> --hostname <host>` or TCP examples; Tunnel side runs cloudflared. For DBs, pair with Hyperdrive binding (env.HYPERDRIVE.connectionString).",
     "detectionSignals": [
       "A Worker / Pages Function needs data from a resource that lives in a private subnet (RDS/Aurora, Cloud SQL, internal microservice) and currently can't reach it",
       "Code that calls a public ALB/API-Gateway URL purely to expose an internal service to the edge, guarded by an IP allowlist or shared secret",
       "Existing cloudflared / Cloudflare Tunnel config (config.yml, `tunnel:` blocks, cloudflared in a Dockerfile or systemd unit) used to reach internal HTTP services",
       "Bastion host / jump box, VPN (WireGuard, OpenVPN, Tailscale) or SSH tunnel stood up so an external compute layer can reach a private DB",
+      "Tailscale/Headscale/NetBird/ZeroTier/WireGuard mesh glue used mainly so edge compute can reach RFC1918 services",
+      "Workers that need to call multiple private services across Cloudflare Tunnel, Mesh nodes, or Cloudflare WAN on-ramps",
       "DB connection strings pointing at private/RFC1918 hosts (10.x, 172.16-31.x, 192.168.x, *.internal, *.local, *.rds.amazonaws.com inside a VPC) that a Worker would need",
       "node-postgres (pg) / mysql2 in a Worker against a non-public database, often already alongside a Hyperdrive binding",
       "Security-group rules or NAT gateways opened to allow inbound from third-party/edge IP ranges",
@@ -1711,7 +1718,9 @@
       "https://developers.cloudflare.com/workers-vpc/configuration/vpc-services/index.md",
       "https://developers.cloudflare.com/workers-vpc/reference/pricing/index.md",
       "https://developers.cloudflare.com/workers-vpc/reference/limits/index.md",
-      "https://developers.cloudflare.com/workers-vpc/examples/private-database/index.md"
+      "https://developers.cloudflare.com/workers-vpc/examples/private-database/index.md",
+      "https://developers.cloudflare.com/workers-vpc/configuration/vpc-networks/index.md",
+      "https://developers.cloudflare.com/changelog/post/2026-05-21-vpc-networks-cloudflare-wan/"
     ],
     "pricing": "Free during open beta to all Workers plans; standard Workers pricing applies for the underlying compute time and requests. A paid Workers plan is required. No separate per-GB/egress fee documented yet, and post-GA pricing for the VPC feature itself is not stated. (verify — drifts; currently beta, APIs and pricing may change before GA)",
     "limits": [
@@ -1727,7 +1736,7 @@
       "Cloudflare Mesh / WAN on-ramps (broader private reachability via VPC Networks)",
       "Workers / Pages Functions (the compute that consumes the binding)"
     ],
-    "notes": "Cloudflare-specific and beta — this is the inverse of Tunnel's usual job: instead of exposing a private service to the public web, it lets Workers dial into your private network, surfaced as a binding. Lock-in: the binding model and `wrangler vpc`/cloudflared setup are Cloudflare-only; your app code calls env.BINDING.fetch() rather than a portable URL. NOT a fit if your services are already public (just fetch them), if you don't run Workers, or if you want a generic site-to-site VPN between your own clouds (that's Magic WAN / Mesh territory, not Workers VPC). You still run and maintain the cloudflared connector inside your network. Could not verify: post-GA price, per-request/egress unit, VPC Networks-specific limits, and full TCP feature maturity — all marked unknown from the pages fetched this run. Hyperdrive is the recommended path for private DBs; raw TCP service types existed in docs but DB access is framed through Hyperdrive.",
+    "notes": "Cloudflare-specific and beta — this is the inverse of Tunnel's usual job: instead of exposing a private service to the public web, it lets Workers dial into your private network, surfaced as a binding. Use VPC Services for scoped host/port targets; use VPC Networks with `network_id: \"cf1:network\"` when Workers need broad reach across Mesh, Tunnel routes, or Cloudflare WAN on-ramps. Lock-in: the binding model and `wrangler vpc`/cloudflared setup are Cloudflare-only; your app code calls env.BINDING.fetch() rather than a portable URL. NOT a fit if your services are already public (just fetch them), if you don't run Workers, or if you want a generic site-to-site VPN between your own clouds (that's Magic WAN / Mesh territory, not Workers VPC). You still run and maintain the cloudflared/Mesh/WAN connectors inside your network. Could not verify: post-GA price, per-request/egress unit, VPC Networks-specific limits, and full TCP feature maturity — all marked unknown from the pages fetched this run. Hyperdrive is the recommended path for private DBs; raw TCP service types existed in docs but DB access is framed through Hyperdrive.",
     "confidence": "high"
   },
   {
@@ -4335,7 +4344,7 @@
       "AI Search: fully managed RAG pipelines (ingest -> embed -> retrieve -> generate)",
       "Vectorize: store/query high-dimensional embeddings as a vector database",
       "Agents: build stateful AI agents (state persistence, tool/external-service calls)",
-      "Browser Rendering: headless browser instances for AI data extraction",
+      "Browser Run: headless browser instances for AI data extraction",
       "Sandbox SDK / Dynamic Workers: spin up isolated on-demand code execution for agents",
       "AI Crawl Control: analyze and control third-party AI crawlers hitting your site"
     ],
@@ -4346,13 +4355,13 @@
       "pinecone-client / weaviate-client / @pinecone-database/pinecone / pgvector + an embeddings cron (could be Vectorize + AI Search)",
       "self-hosted RAG: a chunk/embed/upsert ingestion script feeding a vector store",
       "replicate / huggingface_hub / runpod / modal for GPU inference (could be Workers AI)",
-      "puppeteer / playwright running in a container for scraping (could be Browser Rendering)",
+      "puppeteer / playwright running in a container for scraping (could be Browser Run)",
       "a hand-rolled 'llm-gateway' / 'ai-proxy' service doing token rate-limits and response caching"
     ],
     "ideaPrompts": [
       "Front existing OpenAI/Anthropic calls with AI Gateway to get caching, spend limits, and per-app analytics without changing model providers",
       "Replace a self-hosted pgvector + embeddings cron with Vectorize + AI Search for a managed RAG pipeline",
-      "Move Puppeteer scraping jobs onto Browser Rendering so agents can extract page data without running your own headless-Chrome fleet"
+      "Move Puppeteer scraping jobs onto Browser Run so agents can extract page data without running your own headless-Chrome fleet"
     ],
     "docs": [
       "https://developers.cloudflare.com/ai/llms.txt",

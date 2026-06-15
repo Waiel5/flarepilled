@@ -1,6 +1,50 @@
 # Observability & Analytics
 
-_9 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+_10 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+
+## Cloudflare Analytics / Custom Dashboards
+`cloudflare-analytics-custom-dashboards` · Observability / Analytics · confidence: `high` · lock-in: `portable`
+
+**Is:** Native Cloudflare traffic and security analytics, including custom dashboards and GraphQL datasets, so teams do not have to scrape Cloudflare APIs into a separate dashboard just to see edge behavior.
+
+**Replaces:** A homegrown Cloudflare metrics dashboard, scheduled GraphQL/API scraper into Grafana/Looker/BigQuery, or one-off CSV exports for traffic/security/cache/bot analytics.
+
+**Use it via:** Cloudflare dashboard: Analytics & Logs > Custom Dashboards. Programmatic queries through the GraphQL Analytics API. Log Explorer-backed charts require Log Explorer data. No Worker binding.
+
+**Capabilities:**
+- Custom Dashboards with widgets over many Cloudflare analytics datasets
+- Prebuilt templates for common views such as traffic, performance, API, bot, DNS, Workers, Zero Trust, and security analytics
+- GraphQL Analytics API exposes more than 100 datasets for programmatic queries
+- Log Explorer charts can be added to dashboards for precise log-backed views where available
+- Dashboard views can combine multiple Cloudflare product metrics without running a separate collector
+
+**Detection signals — the lens fires on these:**
+- Cron jobs querying Cloudflare GraphQL/REST analytics only to populate a dashboard
+- Grafana/Looker/Metabase dashboards whose source tables are just Cloudflare traffic/cache/security aggregates
+- Manual CSV exports from Cloudflare analytics pages
+- Runbooks that tell operators to check multiple Cloudflare product dashboards and paste numbers together
+- Custom API glue to chart bot, cache, WAF, DNS, Workers, or Zero Trust metrics already available in Cloudflare
+
+**Ideas:**
+- Replace a cron-scraped Grafana board of Cloudflare traffic/cache metrics with a Custom Dashboard and only keep external export for long retention or non-Cloudflare joins.
+- Use a dashboard template for bot/API/security analysis before writing a bespoke analytics page.
+- For product metrics that need exact logs, add Log Explorer charts rather than approximating from sampled aggregates.
+
+**Pairs with:** Log Explorer, Logpush, R2, Workers Observability / Workers Logs, WAF, Bot Management, Cache Analytics, Zero Trust analytics
+
+**Pricing:** Custom Dashboards are available to all Cloudflare customers; Log Explorer charts and dataset retention/precision depend on the underlying analytics/log product and plan.
+
+**Limits:**
+- Custom Dashboard count: 25 dashboards for all customers; Log Explorer custom dashboards can have a separate higher cap
+- Standard analytics datasets may be sampled or aggregated; use Log Explorer/Logpush/R2 when you need raw event retention
+- Not a full BI warehouse: cross-cloud joins, long retention, and arbitrary transformations still belong in your analytics stack
+- GraphQL dataset availability and dimensions vary by product and plan
+
+**Notes:** The winning move is often 'delete the small dashboard scraper,' not 'replace the whole data warehouse.' Keep external analytics when Cloudflare data must be joined with app/business events, retained for years, or transformed heavily; use Custom Dashboards for Cloudflare-native operational visibility.
+
+**Docs:** https://developers.cloudflare.com/analytics/llms.txt, https://developers.cloudflare.com/analytics/custom-dashboards/index.md, https://developers.cloudflare.com/analytics/graphql-api/index.md, https://developers.cloudflare.com/analytics/log-explorer/charts/
+
+---
 
 ## Cloudflare Logs (Logpush / Logpull / Instant Logs)
 `logs-logpush` · Observability / Log Pipeline · confidence: `high` · lock-in: `sticky`

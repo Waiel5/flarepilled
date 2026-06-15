@@ -18,7 +18,10 @@ const builtPath = path.join(pluginRoot, 'knowledge', 'sources', '.built');
 // Persisted loudness. Absent => normal. We READ but never overwrite — /flare owns it.
 function readLevel() {
   try {
-    return fs.readFileSync(flagPath, 'utf8').trim().toLowerCase() || 'normal';
+    const raw = fs.readFileSync(flagPath, 'utf8').trim().toLowerCase();
+    if (raw === 'on') return 'normal';
+    if (['quiet', 'normal', 'loud', 'off'].includes(raw)) return raw;
+    return 'normal';
   } catch (e) {
     return 'normal';
   }
@@ -36,7 +39,7 @@ function loadLens() {
   }
 }
 
-// Self-refresh awareness: warn once when the catalog snapshot is old.
+// Self-refresh awareness: warn at SessionStart when the catalog snapshot is old.
 function ageNote() {
   try {
     const built = fs.readFileSync(builtPath, 'utf8').trim(); // YYYY-MM-DD
@@ -54,7 +57,6 @@ function ageNote() {
 const level = readLevel();
 
 if (level === 'off') {
-  process.stdout.write('FLAREPILLED is OFF. Say "flare on" or run `/flare normal` to re-enable the Cloudflare lens.');
   process.exit(0);
 }
 

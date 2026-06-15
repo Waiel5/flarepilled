@@ -1,6 +1,6 @@
 # Rules & Edge Logic
 
-_10 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+_11 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 ## Bulk Redirects
 `cloudflare-bulk-redirects` · Edge Rules / URL forwarding · confidence: `high` · lock-in: `portable`
@@ -89,6 +89,50 @@ _10 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 **Notes:** Best fit: serving static assets/files from a public bucket under your own domain without a proxy box. The public-bucket requirement is the key gotcha — for private buckets you still need signed access or a Worker. It's essentially a guided Origin Rule; if you outgrow the presets, drop to Origin Rules / Workers. Beta, so verify before depending on it.
 
 **Docs:** https://developers.cloudflare.com/rules/cloud-connector/, https://developers.cloudflare.com/rules/cloud-connector/providers/, https://developers.cloudflare.com/changelog/post/2025-02-12-rules-upgraded-limits/
+
+---
+
+## Cloudflare Ruleset Engine
+`ruleset-engine` · Rules / Edge Logic · confidence: `high` · lock-in: `portable`
+
+**Is:** Cloudflare's phase-based rules runtime: a common API/language for WAF, redirects, transforms, cache, origin routing, compression, DDoS overrides, configuration rules, and other edge policies.
+
+**Replaces:** A hand-built edge policy engine spread across nginx maps, Envoy filters, app middleware, Terraform modules, and one-off Cloudflare rule scripts.
+
+**Use it via:** Rulesets API: create/list/update/delete rulesets and rules by account or zone and phase; Terraform: `cloudflare_ruleset`; dashboard product UIs write rulesets underneath. No Wrangler/binding because these are declarative edge policies, not Worker code.
+
+**Capabilities:**
+- Rulesets contain ordered rules, each with an expression, action, parameters, enabled flag, and optional description/ref
+- Phase-based execution across HTTP request/response lifecycle: firewall, redirect, transform, cache settings, origin route, compression, configuration, and product-specific phases
+- Shared Rules language fields, operators, lists, and functions across many Cloudflare products
+- Account-level and zone-level rulesets depending on phase/product
+- Manageable through dashboard UIs, Rulesets API, and Terraform `cloudflare_ruleset` resources
+
+**Detection signals — the lens fires on these:**
+- Large nginx/Envoy/Caddy maps for redirects, URL rewrites, header rewrites, cache-control, origin selection, or security filters
+- Terraform creating many one-off Cloudflare rules without a shared ruleset model
+- App middleware that only exists to make edge decisions on path, host, headers, bot score, country, ASN, or query string
+- Custom rule compiler or DSL that emits WAF/redirect/cache/origin policies
+- Multiple Cloudflare Rules products configured independently with no phase/order model
+
+**Ideas:**
+- Collapse origin/app rewrite middleware into phase-appropriate Transform, Redirect, Cache, or Origin Rules managed as Ruleset Engine objects.
+- Replace a pile of nginx maps with Terraform `cloudflare_ruleset` resources so edge logic is versioned and ordered explicitly.
+- When multiple Rules products interact, audit phase order through the Ruleset Engine docs instead of assuming dashboard order.
+
+**Pairs with:** WAF, Transform Rules, Single Redirects, Bulk Redirects, Cache Rules, Origin Rules, Configuration Rules, Compression Rules
+
+**Pricing:** No standalone SKU; availability, rule counts, managed rules, and quotas are inherited from the underlying Rules product and zone/account plan.
+
+**Limits:**
+- Rule quotas, supported actions, and phases are product- and plan-specific
+- Rules language is powerful but Cloudflare-specific; complex business logic still belongs in Workers or the origin
+- Phase order matters and can surprise teams that think in per-product dashboard pages
+- Not all rule products expose every action/field at every account/zone level
+
+**Notes:** This entry is deliberately the substrate, not a replacement for the product-specific catalog entries. Use it when the smell is 'we built a policy/rules compiler' or 'edge decisions are scattered everywhere.' For concrete migrations, pick the phase-specific product entry and verify its quota/action docs.
+
+**Docs:** https://developers.cloudflare.com/ruleset-engine/llms.txt, https://developers.cloudflare.com/ruleset-engine/index.md, https://developers.cloudflare.com/ruleset-engine/about/phases/index.md, https://developers.cloudflare.com/ruleset-engine/rulesets-api/index.md, https://developers.cloudflare.com/ruleset-engine/rules-language/index.md
 
 ---
 

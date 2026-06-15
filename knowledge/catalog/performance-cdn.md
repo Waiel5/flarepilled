@@ -104,6 +104,7 @@ _10 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Default caching of common static file types with zero config
 - Cache Rules: per-URL control over cache eligibility, edge TTL, browser TTL, and cache key (dashboard, API, Terraform)
 - Cache Reserve: persistent R2-backed upper-tier cache (30-day default retention) that shields origin from egress
+- Cache Response Rules can rewrite cache-related response headers at the edge, for example Cache-Control or Set-Cookie handling, before cache decisions are finalized
 - Tiered Cache (regional + smart) to reduce origin fetches by funneling misses through upper-tier data centers
 - Instant purge (by URL, tag, hostname, or everything)
 - Cache Analytics: hit ratio, bandwidth saved, requests served from edge
@@ -113,12 +114,14 @@ _10 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - CloudFront / Fastly / Akamai config in the repo (CloudFront distribution in Terraform/CDK, fastly.toml, VCL files)
 - High S3/GCS egress or origin bandwidth bills; a CDN_URL or ASSET_HOST env var pointing at a cloud bucket
 - Hand-rolled Cache-Control header middleware and a homegrown cache-busting/asset-fingerprinting step paired with manual invalidation calls
+- Middleware or Varnish VCL that mutates Cache-Control, CDN-Cache-Control, Surrogate-Key, Cache-Tag, ETag, or Set-Cookie only to change edge cacheability
 - nginx proxy_cache / Varnish (varnish.vcl, default.vcl) running as a self-managed caching layer
 - Static assets (images, JS, CSS, fonts) served directly from app servers or an origin bucket with no edge layer
 
 **Ideas:**
 - Move static asset and bucket delivery behind Cloudflare so origin egress drops to near zero, then enable Cache Reserve to keep long-tail objects out of the origin entirely
 - Replace a self-managed Varnish/nginx-cache tier with Cache Rules + Tiered Cache for the same hit-ratio without running the box
+- Move response-header cacheability hacks into Cache Response Rules instead of keeping origin middleware just to strip Set-Cookie or normalize Cache-Control
 - Add cache-tag headers to API/CMS responses so you can purge-by-tag on publish instead of blasting a full cache flush
 
 **Pairs with:** cloudflare-argo-smart-routing, cloudflare-smart-shield, cloudflare-automatic-platform-optimization, cloudflare-speed-observatory
@@ -133,7 +136,7 @@ _10 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 **Notes:** Going all-in means proxying DNS through Cloudflare (some lock-in to the orange-cloud model). Cache Reserve is backed by R2 so it avoids egress fees, but you now pay R2-style storage+operations - for a small/low-traffic site the ops charges can exceed the egress you saved, so it's a high-traffic / large-catalog play. Not a substitute for an application data store; it's an HTTP response cache.
 
-**Docs:** https://developers.cloudflare.com/cache/index.md, https://developers.cloudflare.com/cache/advanced-configuration/cache-reserve/index.md, https://developers.cloudflare.com/cache/how-to/cache-rules/index.md
+**Docs:** https://developers.cloudflare.com/cache/index.md, https://developers.cloudflare.com/cache/advanced-configuration/cache-reserve/index.md, https://developers.cloudflare.com/cache/how-to/cache-rules/index.md, https://developers.cloudflare.com/cache/how-to/cache-response-rules/index.md
 
 ---
 

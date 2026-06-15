@@ -71,14 +71,14 @@
     "confidence": "medium"
   },
   {
-    "title": "R2 zero-egress as a drop-in S3 replacement (huge bandwidth savings)",
-    "summary": "The most repeated 'I replaced X with Cloudflare Y' story: move bandwidth-heavy object workloads from S3 to R2 to kill egress fees. Reported outcomes range from an indie dev whose bill 'became $0,' to a team taking ~$30k/yr off bandwidth by fronting CloudFront with Cloudflare, to ~60x cited savings; OpenTofu runs its provider/module registry on R2. R2 is S3-API-compatible so rclone/restic and most S3 tooling work unchanged. Migration friction noted: leaving AWS now incurs its own egress toll (e.g. ~$24 for 250GB), and Glacier Deep Archive can still beat R2 for cold archival.",
+    "title": "R2 zero-egress as an S3-compatible replacement (huge bandwidth savings)",
+    "summary": "The most repeated 'I replaced X with Cloudflare Y' story: move bandwidth-heavy object workloads from S3 to R2 to kill egress fees. Reported outcomes range from an indie dev whose bill 'became $0,' to a team taking ~$30k/yr off bandwidth by fronting CloudFront with Cloudflare, to ~60x cited savings; OpenTofu runs its provider/module registry on R2. R2 is S3-API-compatible so rclone/restic and most S3 tooling work with an endpoint swap, but it is not S3-identical: validate unsupported S3 APIs, auth semantics, object-lock/versioning expectations, and cache behavior before promising a drop-in migration. Migration friction noted: leaving AWS now incurs its own egress toll (e.g. ~$24 for 250GB), and Glacier Deep Archive can still beat R2 for cold archival.",
     "products": [
       "R2",
       "Workers"
     ],
     "category": "cost-migration",
-    "takeaway": "For egress-heavy media/asset/registry serving, R2's zero egress + S3-compatible API makes it a near-drop-in S3 replacement that can cut bandwidth cost by 50-97%.",
+    "takeaway": "For egress-heavy media/asset/registry serving, R2's zero egress + S3-compatible API can cut bandwidth cost by 50-97%, but validate S3 feature gaps before calling it drop-in.",
     "recommendation": "do",
     "sources": [
       "https://news.ycombinator.com/item?id=42256771",
@@ -89,16 +89,20 @@
     "confidence": "high"
   },
   {
-    "title": "R2's sharp edges vs S3: HTTP Range bug, no region pinning, no IAM",
-    "summary": "Counterweight to the R2 hype, from devs who hit walls. One reported HTTP Range requests failing ~50% of the time (returning the full object instead of the requested byte range) — CF support called it 'expected behaviour due to a CDN issue' and it was undocumented; this breaks video scrubbing/resumable downloads. Others flag: no object versioning natively (workaround via Workers), no IAM/fine-grained access (no path-scoped access, no SSO/2FA enforcement, no blast-radius limits), unpredictable bucket placement with no region selection ('if you're unlucky it'll be placed in Warsaw'), no cross-region replication, and elevated failure rates on concurrent ListObject. Enterprise/security-sensitive and data-lake-throughput workloads are where people say stay on S3.",
+    "title": "R2's sharp edges vs S3: S3 API gaps, Cloudflare auth model, and cache semantics",
+    "summary": "Counterweight to the R2 hype, from devs who hit walls. Older community reports mention HTTP Range surprises, but the current R2 S3 compatibility docs list GetObject Range support; if video scrubbing/resumable downloads fail now, first check whether a CDN/custom-domain cache layer is returning stale or un-ranged responses. Official gaps that remain: S3 bucket versioning APIs and S3 Object Lock APIs/headers are not implemented, while Cloudflare-native Bucket Locks are a separate retention feature. R2 access is via Cloudflare API tokens / S3 credentials rather than AWS IAM, and data placement is controlled with Location Hints or Jurisdictional Restrictions rather than arbitrary AWS regions. Enterprise/security-sensitive and data-lake-throughput workloads should validate the exact S3 APIs, auth boundaries, retention, replication, and caching path before migrating.",
     "products": [
       "R2"
     ],
     "category": "gotcha",
-    "takeaway": "R2 is not a full S3 replacement: watch for flaky Range requests, no region pinning, no IAM/versioning, and weaker concurrency — validate these before migrating critical paths.",
+    "takeaway": "R2 is S3-compatible, not S3-identical: Range is supported directly, but versioning/Object Lock APIs, AWS IAM assumptions, placement, replication, and cache behavior still need validation before critical migrations.",
     "recommendation": "avoid",
     "sources": [
-      "https://news.ycombinator.com/item?id=42256771"
+      "https://news.ycombinator.com/item?id=42256771",
+      "https://developers.cloudflare.com/r2/api/s3/api/",
+      "https://developers.cloudflare.com/r2/buckets/bucket-locks/",
+      "https://developers.cloudflare.com/r2/reference/data-location/",
+      "https://developers.cloudflare.com/r2/reference/consistency/"
     ],
     "confidence": "medium"
   },
@@ -137,13 +141,13 @@
   },
   {
     "title": "D1's 10GB-per-database wall forces a sharding mindset",
-    "summary": "Devs evaluating D1 for production repeatedly trip on the 10GB max database size and ask how it's usable at scale. CF's intended answer (and the community's): D1 isn't one big DB — it's meant to be sharded into many small (per-user/per-tenant/per-entity) databases, with thousands of DBs at no extra cost (limit ~50,000 on paid, increases not guaranteed). People who don't design for that from day one face a migration to Hyperdrive+Postgres or external DB once a single tenant's data outgrows 10GB. Same architectural shape as the per-user-DO pattern.",
+    "summary": "Devs evaluating D1 for production repeatedly trip on the 10GB max database size and ask how it's usable at scale. CF's intended answer (and the community's): D1 isn't one big DB — it's meant to be sharded into many small (per-user/per-tenant/per-entity) databases, with thousands of DBs at no extra cost (limit ~50,000 on paid, increases not guaranteed). There is no transparent 'grow this one DB past 10GB' path; teams that do not design for sharding face a manual split/export/import or migration to Hyperdrive+Postgres/external DB once a tenant outgrows one DB. Same architectural shape as the per-user-DO pattern.",
     "products": [
       "D1",
       "Hyperdrive"
     ],
     "category": "gotcha",
-    "takeaway": "D1 caps each database at 10GB by design — architect for many sharded per-tenant databases up front, or plan an exit to Hyperdrive/Postgres.",
+    "takeaway": "D1 caps each database at 10GB by design — architect for many sharded per-tenant databases up front, or plan a manual split/export/import or exit to Hyperdrive/Postgres.",
     "recommendation": "avoid",
     "sources": [
       "https://www.answeroverflow.com/m/1345869029906059305",
@@ -173,12 +177,12 @@
   },
   {
     "title": "R2 + rclone/restic as a self-hosted Dropbox/backup target",
-    "summary": "In selfhosted circles R2 is a popular cloud backup/sync target precisely because of zero egress: mount a bucket locally with `rclone mount` or push encrypted backups via rclone crypt / restic against R2's S3 API, getting global CDN delivery and free restores (no egress charge to pull your data back). Used as a cheap Dropbox-for-photos / media-library tier and offsite backup. The catch versus B2/S3 is the R2 feature gaps above (no native versioning, placement/IAM limits), so people layer restic's snapshotting or rclone crypt on top for integrity and encryption.",
+    "summary": "In selfhosted circles R2 is a popular cloud backup/sync target precisely because of zero egress: mount a bucket locally with `rclone mount` or push encrypted backups via rclone crypt / restic against R2's S3 API, getting global CDN delivery and free restores (no egress charge to pull your data back). Used as a cheap Dropbox-for-photos / media-library tier and offsite backup. The catch versus B2/S3 is the R2 feature gaps above: Cloudflare-native Bucket Locks exist, but S3 bucket versioning APIs and S3 Object Lock APIs/headers do not; auth/placement semantics differ from AWS. People layer restic's snapshotting or rclone crypt on top for backup history, integrity, and encryption.",
     "products": [
       "R2"
     ],
     "category": "clever-combo",
-    "takeaway": "R2's zero-egress + S3 API makes it a cheap rclone/restic backup and self-hosted file-sync target where restores are free — add restic/rclone-crypt for versioning and encryption R2 lacks.",
+    "takeaway": "R2's zero-egress + S3 API makes it a cheap rclone/restic backup and self-hosted file-sync target where restores are free — use restic/rclone-crypt for snapshotting/encryption semantics instead of assuming S3 versioning/Object Lock.",
     "recommendation": "idea",
     "sources": [
       "https://rclone.org/",
@@ -204,28 +208,31 @@
     "confidence": "high"
   },
   {
-    "title": "R2 is missing enterprise S3 features: object lock/versioning, tiering, granular IAM, audit",
-    "summary": "Same R2 threads carry consistent warnings: R2 lacks (or only recently/partially added) object versioning and object lock — a real risk for accidental-deletion recovery and compliance. No cold storage tier (R2 is ~35% cheaper than S3 Standard but far pricier than Glacier/B2 for archival). Access controls described as 'limited and bolted on' vs S3 IAM granularity + CloudTrail audit. Custom domains require the domain to be on Cloudflare. Some reported write latency near ~1s vs S3's <100ms, and R2 scoring worst in S3-compat benchmarks for some ops. Verdict: great for hot data needing egress; for archival use B2 (cited ~4x cheaper) or Glacier; for same-region AWS compute, S3 egress is already free.",
+    "title": "R2 is not S3-identical for enterprise buckets: versioning/Object Lock APIs, IAM model, audit, replication",
+    "summary": "Same R2 threads carry consistent warnings, but the current docs need more precise wording. Cloudflare-native Bucket Locks exist for retention/WORM-style protection and Infrequent Access exists for a cheaper storage class, so 'no object lock/tiering' is stale. What remains true: R2's S3-compatible API does not implement S3 bucket versioning APIs or S3 Object Lock APIs/headers, AWS IAM policy assumptions do not carry over directly, and teams should validate audit, replication, object tagging/ACL/request-payer gaps, custom-domain requirements, and workload-specific latency/throughput. Verdict: great for hot data needing egress savings; for deep archival, same-region AWS compute, or compliance programs built around exact S3 controls, verify before migrating.",
     "products": [
       "R2"
     ],
     "category": "gotcha",
-    "takeaway": "Don't treat R2 as a drop-in S3: check for object lock/versioning, IAM granularity, audit, and archival tiering before migrating compliance- or backup-critical buckets.",
+    "takeaway": "Don't treat R2 as exact S3: Cloudflare Bucket Locks and IA storage exist, but S3 versioning/Object Lock APIs, AWS IAM assumptions, audit/replication needs, and unsupported S3 features still decide compliance migrations.",
     "recommendation": "avoid",
     "sources": [
       "https://news.ycombinator.com/item?id=38118577",
-      "https://news.ycombinator.com/item?id=33453104"
+      "https://news.ycombinator.com/item?id=33453104",
+      "https://developers.cloudflare.com/r2/buckets/bucket-locks/",
+      "https://developers.cloudflare.com/r2/api/s3/api/",
+      "https://developers.cloudflare.com/r2/pricing/"
     ],
     "confidence": "medium"
   },
   {
     "title": "D1 single-primary-region latency bites: 200–500ms+ reads from far edges, no edge result cache",
-    "summary": "The 'Optimize D1 Queries' thread surfaced multiple year-plus production reports of high latency: 400ms+ (spiking >500ms) for simple queries, 200ms+ from North America, and 300–3000ms vs 50–100ms on DigitalOcean Postgres. Root cause is architectural: a D1 DB lives in ONE primary region, so every cache-miss from Cloudflare's 300+ edges round-trips to that region, and there's no active edge result caching. Despite running 'at the edge,' compute and DB can be far apart. Community consensus: D1 currently fits small, low-complexity, read-light projects (visitor tracking, mailing lists) rather than latency-sensitive global apps.",
+    "summary": "The 'Optimize D1 Queries' thread surfaced multiple year-plus production reports of high latency: 400ms+ (spiking >500ms) for simple queries, 200ms+ from North America, and 300–3000ms vs 50–100ms on DigitalOcean Postgres. Root cause is architectural: a D1 DB has a single primary/write path, so writes and non-replicated reads can round-trip to that region, and D1 does not provide a generic edge result cache. D1 now has public-beta read replication through the Sessions API, but that must be enabled and used with bookmarks to avoid stale-read foot-guns. Community consensus: D1 fits small, low-complexity, read-light projects more naturally than latency-sensitive global write-heavy apps.",
     "products": [
       "D1"
     ],
     "category": "gotcha",
-    "takeaway": "D1 is single-region under the hood — expect WAN latency on cache-miss reads from distant edges; don't assume 'edge DB' means low global latency.",
+    "takeaway": "D1 has a single primary/write path; beta read replicas can help reads only when enabled and used through Sessions/bookmarks. Do not assume 'edge DB' means low global latency by default.",
     "recommendation": "avoid",
     "sources": [
       "https://news.ycombinator.com/item?id=43572511",
@@ -312,14 +319,14 @@
     "confidence": "community"
   },
   {
-    "title": "Dzero: 'Supabase for SQLite' on D1 — but global replication is just storage duplication, not read replicas",
-    "summary": "Show HN Dzero layers a dashboard + API over Cloudflare D1, pitching globally distributed SQLite by duplicating the SQLite file across R2/S3 instances. Under scrutiny the author conceded D1 has no read replicas, so '320 edge locations' is achieved by duplicating files and 'managing consistency' manually — raising unanswered consistency-guarantee questions. The 10GB/DB cap is unsolved (sharding only planned), and full-DB download is limited for large DBs. Commenters likened it to a thin layer over an existing service (the Vercel critique) and questioned defensibility if Cloudflare ships similar tooling. Useful as a cautionary tale on 'distributed SQLite' claims.",
+    "title": "Dzero: 'Supabase for SQLite' on D1 — historical warning about hand-managed replication claims",
+    "summary": "Show HN Dzero layers a dashboard + API over Cloudflare D1, pitching globally distributed SQLite by duplicating the SQLite file across R2/S3 instances. At the time of the thread, the author conceded D1 had no read replicas, so '320 edge locations' meant duplicated files and manually managed consistency. Official D1 has since added public-beta read replication via the Sessions API, so treat the old 'no read replicas' criticism as historical; the useful warning is still to scrutinize consistency guarantees and distinguish official Sessions/bookmarks from DIY storage duplication. The 10GB/DB cap remains an architecture constraint.",
     "products": [
       "D1",
       "R2"
     ],
     "category": "gotcha",
-    "takeaway": "Scrutinize 'globally distributed SQLite' claims — without true read replicas it's file duplication with hand-managed consistency, and D1's 10GB/download limits still apply.",
+    "takeaway": "Scrutinize 'globally distributed SQLite' claims: official D1 read replication is beta and Sessions/bookmark-based; DIY file duplication is not the same consistency model, and D1's 10GB/database cap still applies.",
     "recommendation": "avoid",
     "sources": [
       "https://news.ycombinator.com/item?id=40563729"
@@ -614,12 +621,12 @@
   },
   {
     "title": "A single Durable Object is single-threaded (~soft 1k req/s) — shard hot objects",
-    "summary": "Each Durable Object is single-threaded and cooperatively scheduled (like browser JS), so all requests to one object serialize through one thread. The practical soft ceiling is on the order of hundreds to ~1,000 requests/second for simple ops, and far less if each request does real work. The classic trap is funneling a hot workload (a global counter, a popular chat room, a leaderboard) through ONE object and hitting a wall. Worse: a long-running external fetch() inside a DO blocks every other request to that object for its duration. The fix the community and Cloudflare both endorse is horizontal sharding — spread load across many objects (e.g. Cloudflare's own Queues team sharded DOs for a 10x throughput gain).",
+    "summary": "Each Durable Object is single-threaded and cooperatively scheduled (like browser JS), so all requests to one object share one execution context. The practical soft ceiling is on the order of hundreds to ~1,000 requests/second for simple ops, and far less if each request does real CPU work or holds serialized state too long. The classic trap is funneling a hot workload (a global counter, a popular chat room, a leaderboard) through ONE object and hitting a wall. Async I/O can yield, but CPU-bound work and long critical sections still stall progress for that object. The fix the community and Cloudflare both endorse is horizontal sharding — spread load across many objects (e.g. Cloudflare's own Queues team sharded DOs for a 10x throughput gain).",
     "products": [
       "Durable Objects"
     ],
     "category": "gotcha",
-    "takeaway": "One DO = one thread (~1k req/s soft cap) and a slow fetch inside it blocks everyone — shard hot keys across many objects instead of one mega-object.",
+    "takeaway": "One DO = one thread (~1k req/s soft cap); CPU-bound work and long serialized sections hurt everyone on that object — shard hot keys instead of making one mega-object.",
     "recommendation": "avoid",
     "sources": [
       "https://developers.cloudflare.com/durable-objects/best-practices/rules-of-durable-objects/",

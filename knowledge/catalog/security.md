@@ -1,6 +1,6 @@
 # Security
 
-_14 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+_15 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 ## AI Crawl Control (formerly AI Audit)
 `ai-crawl-control` · Security / Bot & Content Control · confidence: `high` · lock-in: `portable`
@@ -329,6 +329,52 @@ _14 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 **Notes:** Squarely a 'stop paying a DMARC vendor' play for anyone already on Cloudflare DNS. The hard requirement is Cloudflare DNS. Overview page (free, all plans, RUA processing, requires Cloudflare DNS + mailbox) verified this run; MCP search corroborated the DMARC record/rua mechanics. The dedicated get-started page returned 404 — confirm the current enablement path.
 
 **Docs:** https://developers.cloudflare.com/dmarc-management/llms.txt, https://developers.cloudflare.com/dmarc-management/index.md
+
+---
+
+## Cloudflare Rate Limiting Rules
+`cloudflare-rate-limiting-rules` · Security / Rate limiting · confidence: `high` · lock-in: `portable`
+
+**Is:** Ruleset Engine-backed request throttling/block/challenge policies for websites and APIs, replacing origin Redis token buckets, nginx limit_req, app middleware, and many bespoke abuse counters.
+
+**Replaces:** express-rate-limit, Rack::Attack, Django ratelimit, nginx `limit_req`, Redis INCR+TTL token buckets, API Gateway usage plans, or app tables that only count requests per IP/user/path.
+
+**Use it via:** Dashboard: WAF > Rate limiting rules. API/Terraform through Rulesets API phase `http_ratelimit` / WAF rate limiting rules configuration (Cloudflare Terraform `cloudflare_ruleset`). Rule parameters include expression, action, characteristics, period, requests_per_period, and mitigation timeout.
+
+**Capabilities:**
+- Define match expressions with Cloudflare Rules language
+- Choose counting characteristics such as source IP, path, query, host, headers, cookies, ASN, country, JA3/JA4, body/form fields, and JSON fields depending on plan
+- Configure period, requests per period, mitigation timeout, and action
+- Actions include block/challenge-style WAF actions when limits are exceeded
+- Advanced Rate Limiting supports richer characteristics, complexity-based rate limiting, and account-level rate-limiting rulesets for some Enterprise customers
+- Terraform and Rulesets API support zone rate limiting rules
+
+**Detection signals — the lens fires on these:**
+- npm deps: express-rate-limit, rate-limiter-flexible, bottleneck, koa-ratelimit
+- Ruby Rack::Attack, Django ratelimit, Flask-Limiter, Laravel throttle middleware, Go tollbooth/limiter packages
+- Redis `INCR` + `EXPIRE` / TTL counters keyed by IP/user/path
+- nginx `limit_req_zone` / `limit_req`, Envoy local_rate_limit, Kong rate-limiting plugin
+- Login/API abuse tables storing request_count/window_start/blocked_until
+- API route middleware whose only job is per-IP or per-token throttling before origin code
+
+**Ideas:**
+- Move login/API endpoint throttling to Rate Limiting Rules before traffic hits the app, deleting Redis counters and middleware.
+- Use WAF Rate Limiting for edge-abuse control; keep a Durable Object or app-side quota only when the limit depends on authenticated business state Cloudflare cannot see.
+- Pair with Bot Management or Turnstile when rate limits are part of a broader abuse defense.
+
+**Pairs with:** WAF, Ruleset Engine, Bot Management, Turnstile, Durable Objects (business-state quota fallback), Workers Rate Limiting binding
+
+**Pricing:** Availability and rule counts vary by plan: Free includes 1 simple IP-only rule; Pro, Business, and Enterprise unlock more rules/fields. Verify the current availability table before quoting.
+
+**Limits:**
+- Rate Limiting Rules are not designed to allow an exact number of requests to reach origin; counter updates can lag by a few seconds
+- Fields, counting characteristics, counting periods, mitigation timeout, custom expressions, and number of rules vary heavily by plan
+- Rules are evaluated in order, and some actions stop evaluation of later rules
+- Rate limiting verified bots can affect SEO
+
+**Notes:** Do not bury this inside generic WAF advice; rate limiting is one of the highest-yield hand-rolled infra smells. Still be precise: origin/app limits remain appropriate for per-account billing quotas or state Cloudflare cannot observe at the edge.
+
+**Docs:** https://developers.cloudflare.com/waf/llms.txt, https://developers.cloudflare.com/waf/rate-limiting-rules/index.md, https://developers.cloudflare.com/waf/rate-limiting-rules/parameters/index.md, https://developers.cloudflare.com/waf/rate-limiting-rules/request-rate/index.md, https://developers.cloudflare.com/terraform/additional-configurations/rate-limiting-rules/
 
 ---
 

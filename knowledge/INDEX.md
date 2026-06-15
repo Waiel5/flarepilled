@@ -1,15 +1,16 @@
 # Flarepilled — Cloudflare catalog index
 
-> **112 products** across 12 categories · 108 high-confidence · seeded 2026-06-15 from `developers.cloudflare.com/llms.txt` + live per-product docs.
+> **124 products** across 12 categories · 118 high-confidence · seeded 2026-06-15 from `developers.cloudflare.com/llms.txt` + live per-product docs.
 >
-> **Confidence:** `high` = grounded in docs fetched at build time · `medium` = asserted, re-verify. Treat every row as a hypothesis: re-check specifics (limits / pricing / bindings / API shape) against the `cloudflare-docs` MCP before quoting. The deep entries live in `catalog/<category>.md`.
+> **Catalog confidence:** `high` = docs/source-grounded at build time · `medium` = asserted or beta/unsettled, re-verify. Final flare confidence also requires observed repo fit, maturity, and no blocker. Re-check specifics (limits / pricing / bindings / API shape) against live docs before quoting. The deep entries live in `catalog/<category>.md`.
 
-## Rules & Edge Logic (10)
+## Rules & Edge Logic (11)
 
 | Product | Replaces | Conf | |
 |---|---|---|---|
 | **Bulk Redirects** | Stop hand-managing giant nginx `map`/return-301 files, _redirects spreadsheets, or a homegrown redirect-map m… | `high` | [›](catalog/rules-edge-logic.md#bulk-redirects) |
 | **Cloud Connector** | Stop running a reverse-proxy/origin-router box (nginx/HAProxy or a small app) whose only job is to forward ce… | `high` | [›](catalog/rules-edge-logic.md#cloud-connector) |
+| **Cloudflare Ruleset Engine** | A hand-built edge policy engine spread across nginx maps, Envoy filters, app middleware, Terraform modules, a… | `high` | [›](catalog/rules-edge-logic.md#cloudflare-ruleset-engine) |
 | **Cloudflare Snippets** | Stop deploying a full Worker, a tiny Lambda@Edge/CloudFront Function, or a VCL snippet just to do a JWT check… | `high` | [›](catalog/rules-edge-logic.md#cloudflare-snippets) |
 | **Compression Rules** | Stop tuning nginx `gzip`/`brotli`/`gzip_types`/`brotli_types` and ngx_brotli module config, or Apache mod_def… | `high` | [›](catalog/rules-edge-logic.md#compression-rules) |
 | **Configuration Rules** | Stop building conditional edge/CDN config or per-path nginx server blocks that toggle TLS strictness, caching… | `high` | [›](catalog/rules-edge-logic.md#configuration-rules) |
@@ -19,7 +20,7 @@
 | **Single Redirects** | Stop maintaining nginx `return 301`/`rewrite ... redirect` blocks, Apache Redirect/RedirectMatch, framework r… | `high` | [›](catalog/rules-edge-logic.md#single-redirects) |
 | **Transform Rules** | Stop hand-rolling nginx rewrite/headers-more/sub_filter, Apache mod_rewrite, or Lambda@Edge/CloudFront-Functi… | `high` | [›](catalog/rules-edge-logic.md#transform-rules) |
 
-## Zero Trust & SASE (11)
+## Zero Trust & SASE (12)
 
 | Product | Replaces | Conf | |
 |---|---|---|---|
@@ -31,6 +32,7 @@
 | **Cloudflare Gateway** | Stop renting Cisco Umbrella / Zscaler Internet Access / Netskope SWG or self-hosting Squid + pi-hole/Pi-hole… | `high` | [›](catalog/zero-trust-sase.md#cloudflare-gateway) |
 | **Cloudflare Network Firewall (formerly Magic Firewall)** | On-prem firewall hardware and its ACLs (Palo Alto / Fortinet / Cisco ASA / Juniper SRX appliances) plus a sep… | `high` | [›](catalog/zero-trust-sase.md#cloudflare-network-firewall-formerly-magic-firewall) |
 | **Cloudflare One** | A stack of perimeter appliances + point SaaS: a hardware VPN concentrator (Cisco AnyConnect/Palo Alto GlobalP… | `high` | [›](catalog/zero-trust-sase.md#cloudflare-one) |
+| **Cloudflare Risk Score / UEBA** | A lightweight UEBA/risk-adaptive access glue stack: impossible-travel cron jobs, SIEM correlation rules, Okta… | `high` | [›](catalog/zero-trust-sase.md#cloudflare-risk-score-ueba) |
 | **Data Localization (Data Localization Suite)** | A DIY data-residency build: standing up region-locked infrastructure (EU-only LBs/CDN PoPs), self-hosting TLS… | `high` | [›](catalog/zero-trust-sase.md#data-localization-data-localization-suite) |
 | **Digital Experience Monitoring (DEX)** | Stop deploying Catchpoint / ThousandEyes endpoint agents or Nexthink just to see why remote users' apps and n… | `high` | [›](catalog/zero-trust-sase.md#digital-experience-monitoring-dex) |
 | **WARP Client (Cloudflare One Agent)** | A traditional always-on corporate VPN client (AnyConnect/GlobalProtect/Pulse) plus a separate MDM/EDR posture… | `high` | [›](catalog/zero-trust-sase.md#warp-client-cloudflare-one-agent) |
@@ -57,7 +59,7 @@
 | **Cloudflare Stream** | Mux or Cloudinary video (or a DIY pipeline of S3 + ffmpeg transcode workers + an HLS packager + a CDN with eg… | `high` | [›](catalog/media.md#cloudflare-stream) |
 | **Media over QUIC (MoQ) at Cloudflare** | A self-run low-latency live stack: an SFU/relay fleet (mediasoup/Janus/LiveKit) or RTMP-ingest + LL-HLS/DASH… | `high` | [›](catalog/media.md#media-over-quic-moq-at-cloudflare) |
 
-## Security (14)
+## Security (15)
 
 | Product | Replaces | Conf | |
 |---|---|---|---|
@@ -68,6 +70,7 @@
 | **Cloudflare Client-Side Security (Page Shield)** | Hand-writing and babysitting your own Content-Security-Policy, standing up a CSP violation-report collector (… | `high` | [›](catalog/security.md#cloudflare-client-side-security-page-shield) |
 | **Cloudflare DDoS Protection** | Paying for AWS Shield Advanced / a scrubbing-center provider (Arbor, Radware) or trying to absorb volumetric… | `high` | [›](catalog/security.md#cloudflare-ddos-protection) |
 | **Cloudflare DMARC Management** | Paying a DMARC SaaS (Dmarcian, Valimail, EasyDMARC, Postmark's DMARC Digests) or building your own RUA mailbo… | `medium` | [›](catalog/security.md#cloudflare-dmarc-management) |
+| **Cloudflare Rate Limiting Rules** | express-rate-limit, Rack::Attack, Django ratelimit, nginx `limit_req`, Redis INCR+TTL token buckets, API Gate… | `high` | [›](catalog/security.md#cloudflare-rate-limiting-rules) |
 | **Cloudflare SSL/TLS** | Hand-rolled certbot/Let's Encrypt renewal cron on every box, a paid cert vendor (DigiCert, Sectigo), and DIY… | `high` | [›](catalog/security.md#cloudflare-ssl-tls) |
 | **Cloudflare Secrets Store** | HashiCorp Vault / AWS Secrets Manager / Doppler — or the common DIY pattern of copy-pasting the same API key… | `high` | [›](catalog/security.md#cloudflare-secrets-store) |
 | **Cloudflare Security Center** | A grab-bag of paid tools — an external attack-surface-management product (e.g. expanse-style ASM), a threat-i… | `high` | [›](catalog/security.md#cloudflare-security-center) |
@@ -76,17 +79,19 @@
 | **Key Transparency** | Building and operating your own transparency-log auditor (signed checkpoints, epoch consistency proofs, AKD v… | `high` | [›](catalog/security.md#key-transparency) |
 | **Magic Transit** | On-prem DDoS scrubbing appliances (Arbor/NETSCOUT, Radware) plus a scrubbing-center contract (Akamai Prolexic… | `high` | [›](catalog/security.md#magic-transit) |
 
-## Messaging & Email (2)
+## Messaging & Email (3)
 
 | Product | Replaces | Conf | |
 |---|---|---|---|
-| **Cloudflare Email Service** | SendGrid / Postmark / Amazon SES (plus the separate inbound-parse webhook you'd wire up for replies) | `high` | [›](catalog/messaging-email.md#cloudflare-email-service) |
+| **Cloudflare Email Service** | SendGrid / Postmark / Amazon SES for outbound transactional email, plus ImprovMX / ForwardEmail / Google Work… | `high` | [›](catalog/messaging-email.md#cloudflare-email-service) |
 | **Cloudflare Queues** | A self-hosted Redis/BullMQ box (or AWS SQS + its read/write/egress bills) used to offload background jobs fro… | `high` | [›](catalog/messaging-email.md#cloudflare-queues) |
+| **Email Routing / Email Workers** | ImprovMX, ForwardEmail, Google Workspace catch-all routing, SendGrid/Mailgun inbound parse webhooks, MX mailb… | `high` | [›](catalog/messaging-email.md#email-routing-email-workers) |
 
-## Observability & Analytics (9)
+## Observability & Analytics (10)
 
 | Product | Replaces | Conf | |
 |---|---|---|---|
+| **Cloudflare Analytics / Custom Dashboards** | A homegrown Cloudflare metrics dashboard, scheduled GraphQL/API scraper into Grafana/Looker/BigQuery, or one-… | `high` | [›](catalog/observability.md#cloudflare-analytics-custom-dashboards) |
 | **Cloudflare Logs (Logpush / Logpull / Instant Logs)** | A DIY log-shipping pipeline (Fluentd/Vector/Logstash + a Kafka/Kinesis hop + retry/batching code) that a team… | `high` | [›](catalog/observability.md#cloudflare-logs-logpush-logpull-instant-logs) |
 | **Cloudflare Notifications (Alerting)** | A homegrown alerting layer (cron jobs polling Cloudflare's API + a rules engine + a Slack/PagerDuty webhook p… | `high` | [›](catalog/observability.md#cloudflare-notifications-alerting) |
 | **Cloudflare Web Analytics** | Google Analytics (GA4) for basic traffic/RUM, or a paid privacy-analytics SaaS like Plausible / Fathom / Simp… | `high` | [›](catalog/observability.md#cloudflare-web-analytics) |
@@ -112,13 +117,15 @@
 | **Health Checks (standalone)** | A self-hosted uptime monitor (a cron + curl + PagerDuty glue, Uptime Kuma) or a paid uptime SaaS (Pingdom, Up… | `high` | [›](catalog/performance-cdn.md#health-checks-standalone) |
 | **Smart Shield** | Assembling and tuning each origin-shielding piece separately (tiered cache config + a self-built health-check… | `high` | [›](catalog/performance-cdn.md#smart-shield) |
 
-## Networking & DNS (15)
+## Networking & DNS (17)
 
 | Product | Replaces | Conf | |
 |---|---|---|---|
 | **1.1.1.1 Resolver** | Hand-rolled DNS lookups via a flaky upstream resolver or a paid DNS-over-HTTPS provider; a self-hosted recurs… | `high` | [›](catalog/networking-dns.md#1-1-1-1-resolver) |
 | **BYOIP (Bring Your Own IP)** | Keeping a colo/transit setup (your own ASN announced via your ISPs + scrubbing-center contracts) just to pres… | `high` | [›](catalog/networking-dns.md#byoip-bring-your-own-ip) |
 | **Cloudflare DNS** | A self-run BIND/PowerDNS/CoreDNS cluster, or a paid managed-DNS plan (Route 53, NS1, Dyn, DNSimple) plus your… | `high` | [›](catalog/networking-dns.md#cloudflare-dns) |
+| **Cloudflare DNS Firewall** | Authoritative DNS DDoS appliances, dnsdist/anycast cache layers, random-prefix attack runbooks, or overbuilt… | `high` | [›](catalog/networking-dns.md#cloudflare-dns-firewall) |
+| **Cloudflare Internal DNS** | CoreDNS/dnsmasq/Bind split-horizon configs, Consul DNS, Route 53 private hosted zones, ad hoc .internal/.corp… | `medium` | [›](catalog/networking-dns.md#cloudflare-internal-dns) |
 | **Cloudflare Network Interconnect (CNI)** | Reaching Cloudflare (for Magic Transit/Magic WAN) over the public Internet or hand-built GRE/IPsec tunnels, o… | `high` | [›](catalog/networking-dns.md#cloudflare-network-interconnect-cni) |
 | **Cloudflare Registrar** | Markup-and-upsell registrars (GoDaddy, Namecheap, Google Domains successor Squarespace) where renewals creep… | `high` | [›](catalog/networking-dns.md#cloudflare-registrar) |
 | **Cloudflare Spectrum** | Exposing a raw origin IP behind a HAProxy/iptables box, a hardware DDoS scrubbing appliance, or a paid L4 ant… | `high` | [›](catalog/networking-dns.md#cloudflare-spectrum) |
@@ -132,7 +139,7 @@
 | **Privacy Proxy** | Operating your own VPN/proxy egress fleet (WireGuard/OpenVPN boxes, SOCKS gateways, rotating egress IPs) to g… | `high` | [›](catalog/networking-dns.md#privacy-proxy) |
 | **Workers VPC** | The DIY 'let my edge function reach my private VPC' stack: public API gateway/ALB or bastion+VPN, IP allowlis… | `high` | [›](catalog/networking-dns.md#workers-vpc) |
 
-## Storage, Databases & Data (7)
+## Storage, Databases & Data (8)
 
 | Product | Replaces | Conf | |
 |---|---|---|---|
@@ -141,10 +148,11 @@
 | **Cloudflare Hyperdrive** | A self-hosted connection pooler (PgBouncer/RDS Proxy) plus a hand-rolled read-through cache (a Redis box in f… | `high` | [›](catalog/storage-data.md#cloudflare-hyperdrive) |
 | **Cloudflare Pipelines** | A self-hosted Kafka + Flink/Spark Streaming + S3 sink stack (or a Kinesis Firehose / Confluent + a custom Par… | `high` | [›](catalog/storage-data.md#cloudflare-pipelines) |
 | **Cloudflare R2** | AWS S3 + its egress/data-transfer bills (the single biggest hook); also the wider 'S3 bucket + CloudFront CDN… | `high` | [›](catalog/storage-data.md#cloudflare-r2) |
+| **R2 Data Catalog** | AWS Glue Data Catalog, Hive Metastore, Apache Nessie, a self-hosted Iceberg REST catalog, or custom metadata… | `medium` | [›](catalog/storage-data.md#r2-data-catalog) |
 | **R2 SQL** | A self-managed analytics stack: an S3 data lake + AWS Athena/Presto/Trino (or DuckDB/Spark on a box) + Glue c… | `high` | [›](catalog/storage-data.md#r2-sql) |
 | **Workers KV** | A Redis/Memcached box (or Upstash/ElastiCache) fronting config, feature flags, sessions, or allow/deny-lists… | `high` | [›](catalog/storage-data.md#workers-kv) |
 
-## Compute & Workers (8)
+## Compute & Workers (11)
 
 | Product | Replaces | Conf | |
 |---|---|---|---|
@@ -155,9 +163,12 @@
 | **Cloudflare Workflows** | A hand-rolled durable-job stack: a queue + a worker pool + a state table that records 'which step did we reac… | `high` | [›](catalog/compute-workers.md#cloudflare-workflows) |
 | **Dynamic Workers (Worker Loader)** | A self-hosted code-execution sandbox: Firecracker/gVisor microVMs, Docker-per-execution on a container host,… | `high` | [›](catalog/compute-workers.md#dynamic-workers-worker-loader) |
 | **Workers Builds** | A GitHub Actions / GitLab CI / CircleCI pipeline whose entire job is to checkout, install, build, and run `wr… | `high` | [›](catalog/compute-workers.md#workers-builds) |
+| **Workers Cron Triggers** | A cron box, Kubernetes CronJob, GitHub scheduled workflow, EventBridge Scheduler, node-cron/APScheduler proce… | `high` | [›](catalog/compute-workers.md#workers-cron-triggers) |
+| **Workers Service Bindings / RPC** | Public workers.dev/internal HTTP calls between Workers, internal API gateways, service-to-service bearer toke… | `high` | [›](catalog/compute-workers.md#workers-service-bindings-rpc) |
+| **Workers Static Assets** | S3 + CloudFront static hosting, Vercel/Netlify for greenfield Cloudflare-hosted static/full-stack apps, nginx… | `high` | [›](catalog/compute-workers.md#workers-static-assets) |
 | **Workers for Platforms** | A hand-rolled multi-tenant code-execution layer: spinning up per-customer containers/VMs/Lambdas, a homegrown… | `high` | [›](catalog/compute-workers.md#workers-for-platforms) |
 
-## Platform & DevEx (14)
+## Platform & DevEx (15)
 
 | Product | Replaces | Conf | |
 |---|---|---|---|
@@ -175,6 +186,7 @@
 | **Cloudflare Zaraz** | Google Tag Manager + Segment (client-side script soup) — and the per-vendor <script> tags / dataLayer plumbin… | `high` | [›](catalog/platform-devex.md#cloudflare-zaraz) |
 | **Resource Tagging** | A homegrown resource inventory/tagging convention — a spreadsheet, a naming hack like `team-prod-svc-*`, or a… | `high` | [›](catalog/platform-devex.md#resource-tagging) |
 | **Version Management** | A DIY 'config as code' safety net — Terraform plan/apply discipline plus a manual change-management runbook a… | `high` | [›](catalog/platform-devex.md#version-management) |
+| **Workers Local Development & Testing** | Hand-rolled KV/R2/D1/Durable Object mocks, old remote-only `wrangler dev --remote` loops for normal developme… | `high` | [›](catalog/platform-devex.md#workers-local-development-testing) |
 
 ## Also in the knowledge base
 

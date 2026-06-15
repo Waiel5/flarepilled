@@ -1,6 +1,6 @@
 # Platform & DevEx
 
-_14 products. Part of the Flarepilled catalog — see `../INDEX.md`._
+_15 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 
 ## Cloudflare Billing, Usage-Based Billing & Budget Alerts
 `billing-usage` · Billing & cost management · confidence: `high` · lock-in: `portable`
@@ -212,7 +212,7 @@ _14 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Framework auto-detection and guides (React, Next.js, Astro, Hugo, SvelteKit, Remix, etc.)
 - Static assets served free and unlimited from the edge CDN with automatic cache
 - _headers and _redirects files for declarative header/redirect rules
-- Full Cloudflare bindings available to Functions: KV, D1, R2, Durable Objects, Vectorize, Workers AI, Queues, Hyperdrive, Service bindings, Analytics Engine, secrets/vars
+- Pages Functions support a documented subset of bindings: KV, D1, R2, Vectorize, Workers AI, Hyperdrive, Service bindings, Analytics Engine, vars/secrets, Queue producer bindings, and Durable Object bindings to an existing namespace from a separate Worker
 - Custom domains with automatic TLS (100 on Free, up to 500 Enterprise)
 
 **Detection signals — the lens fires on these:**
@@ -230,7 +230,7 @@ _14 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Collapse a separate 'API server' (Express on a VPS/Render) into Pages Functions co-located with the frontend, binding D1 for the DB and KV for sessions instead of a managed Postgres + Redis box.
 - Use preview deployments as ephemeral staging environments for every PR instead of standing up and tearing down review apps manually.
 
-**Pairs with:** D1 (SQL database binding for Functions), KV (sessions, edge config, cache), R2 (user uploads / static media, zero egress), Workers AI + Vectorize (AI features and RAG from Functions), Durable Objects (only via Workers — a reason to migrate), Hyperdrive (connect Functions to existing Postgres/MySQL)
+**Pairs with:** D1 (SQL database binding for Functions), KV (sessions, edge config, cache), R2 (user uploads / static media, zero egress), Workers AI + Vectorize (AI features and RAG from Functions), Durable Objects (bindings can target an existing namespace created/deployed by a separate Worker; authoring the Durable Object class itself remains a Workers concern), Hyperdrive (connect Functions to existing Postgres/MySQL)
 
 **Pricing:** Free tier: unlimited static requests/bandwidth, 500 builds/month, 1 concurrent build, unlimited preview deployments, 100 custom domains. Pages Functions invocations are NOT free — they count against the shared Workers request quota (Free: 100,000 requests/day across Pages Functions + Workers combined, resets midnight UTC); Paid follows the Workers Standard usage model billed per request + CPU time. Build tiers: Pro 5,000/mo (5 concurrent), Business 20,000/mo (20 concurrent). (verify — drifts)
 
@@ -244,7 +244,7 @@ _14 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 - Custom domains per project: 100 Free, 250 Pro, 500 Business/Enterprise
 - Static assets are free and unlimited, but every Functions invocation consumes the Workers request quota
 
-**Notes:** Honest caveats: (1) Cloudflare is steering new full-stack work toward Workers Static Assets, not Pages. The migrate-from-pages guide states Workers has a 'distinctly broader set of features' — Durable Objects, Cron Triggers, Email Workers, Queue Consumers, Logpush, Tail Workers, Source Maps, fuller Observability are Workers-only and NOT available to Pages Functions. For a greenfield app needing any of those, recommend Workers with static assets over Pages; Pages remains excellent for git-driven static/SSR sites and existing Pages projects. (2) Cost is NOT 'free static hosting' end-to-end — only static assets are free; dynamic Functions traffic bills exactly like Workers, so a function-heavy app is priced as a Workers app, not as free CDN hosting. (3) Build minutes are gated by a monthly build COUNT (not minutes) with a hard 20-min per-build timeout; very long monorepo builds can hit it. (4) Lock-in: Functions' binding model (context.env, wrangler config) is Cloudflare-specific; framework adapters (@cloudflare/next-on-pages, @astrojs/cloudflare) ease but don't eliminate portability cost. (5) Could not verify exact paid per-request/CPU rates from the Pages pricing page — it defers to the Workers Standard usage model; confirm current Workers pricing separately.
+**Notes:** Honest caveats: (1) Cloudflare is steering new full-stack work toward Workers Static Assets, not Pages. The migrate-from-pages guide states Workers has a 'distinctly broader set of features'. Pages Functions support many bindings, but not the full Workers surface: Durable Object bindings can target an existing namespace created/deployed from a separate Worker, Queues are producer-only from Pages Functions, and Cron Triggers, Queue consumers, Email Workers, Logpush, Tail Workers, Source Maps, and fuller Workers observability remain Workers-only. For a greenfield app needing those, recommend Workers with static assets over Pages; Pages remains excellent for git-driven static/SSR sites and existing Pages projects. (2) Cost is NOT 'free static hosting' end-to-end — only static assets are free; dynamic Functions traffic bills exactly like Workers, so a function-heavy app is priced as a Workers app, not as free CDN hosting. (3) Build minutes are gated by a monthly build COUNT (not minutes) with a hard 20-min per-build timeout; very long monorepo builds can hit it. (4) Lock-in: Functions' binding model (context.env, wrangler config) is Cloudflare-specific; framework adapters (@cloudflare/next-on-pages, @astrojs/cloudflare) ease but don't eliminate portability cost. (5) Could not verify exact paid per-request/CPU rates from the Pages pricing page — it defers to the Workers Standard usage model; confirm current Workers pricing separately.
 
 **Docs:** https://developers.cloudflare.com/pages/llms.txt, https://developers.cloudflare.com/pages/index.md, https://developers.cloudflare.com/pages/functions/bindings/index.md, https://developers.cloudflare.com/pages/functions/pricing/index.md, https://developers.cloudflare.com/pages/platform/limits/index.md, https://developers.cloudflare.com/pages/get-started/git-integration/index.md, https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/index.md
 
@@ -656,5 +656,52 @@ _14 products. Part of the Flarepilled catalog — see `../INDEX.md`._
 **Notes:** Easy to confuse with Workers deployment versioning — this is specifically for ZONE config safety (WAF/optimization). Recommend only for Enterprise zones. I corrected an earlier ambiguity: environments ARE first-class (Dev/Staging/Prod with editable traffic filters); what's NOT documented is percentage-based gradual rollout.
 
 **Docs:** https://developers.cloudflare.com/version-management/index.md, https://developers.cloudflare.com/version-management/about/index.md, https://developers.cloudflare.com/version-management/reference/available-configurations/index.md
+
+---
+
+## Workers Local Development & Testing
+`workers-local-dev-testing` · Platform & DevEx / Workers local dev and tests · confidence: `high` · lock-in: `portable`
+
+**Is:** Cloudflare's first-party Workers dev/test loop: Wrangler or the Cloudflare Vite plugin run code locally on Miniflare/workerd, remote bindings opt into real resources per binding, and the Workers Vitest integration runs tests inside the Workers runtime.
+
+**Replaces:** Hand-rolled KV/R2/D1/Durable Object mocks, old remote-only `wrangler dev --remote` loops for normal development, cloudflare-worker-mock-style test harnesses, or Jest/Node tests that cannot exercise Workers runtime APIs and bindings.
+
+**Use it via:** Local dev: `npx wrangler dev` or `npx vite dev` with `@cloudflare/vite-plugin`. Remote bindings: add `remote: true` per binding in wrangler.jsonc/toml. Tests: configure Workers Vitest integration (`@cloudflare/vitest-pool-workers` / Cloudflare test pool) so tests run inside workerd with helpers from `cloudflare:test`.
+
+**Capabilities:**
+- Wrangler dev and the Cloudflare Vite plugin run Worker code locally using Miniflare and the same production runtime, workerd
+- Local bindings simulate KV, R2, D1, Queues, Durable Objects, and other resources by default
+- Remote bindings can connect selected bindings to real Cloudflare resources with `remote: true` while Worker code still executes locally
+- Cloudflare Vite plugin gives Vite HMR plus Workers runtime/binding access for standalone Workers, SPAs, static sites, and full-stack apps
+- Workers Vitest integration runs unit and integration tests inside the Workers runtime with direct binding/runtime API access
+- Vitest integration provides isolated per-test-file storage and supports multiple Workers
+- Miniflare and unstable_startWorker remain options for non-Vitest test frameworks
+
+**Detection signals — the lens fires on these:**
+- `wrangler dev --remote` used as the ordinary local development loop instead of local dev with selective remote bindings
+- Custom mocks/stubs for KV, R2, D1, Durable Objects, Queues, or Service Bindings in Jest/Vitest tests
+- Deps or helpers such as cloudflare-worker-mock, service-worker-mock, miniflare-only custom harnesses, or large hand-maintained env factories
+- Workers code tested only in Node/Jest with fake `Request`, `Response`, `env`, or global caches
+- Vite-based Worker/full-stack project with vite.config.* but no `@cloudflare/vite-plugin` and no framework-specific Cloudflare adapter
+- CI deploy-test cycle used just to see binding behavior that Miniflare/workerd or remote bindings can cover locally
+
+**Ideas:**
+- Replace bespoke Workers binding mocks with the Workers Vitest integration so tests run in workerd with real runtime APIs.
+- Move from `wrangler dev --remote` as the default loop to local Wrangler/Vite dev with `remote: true` only on bindings that cannot be simulated well.
+- For a Vite-based Workers app, add the Cloudflare Vite plugin so dev/build/preview use workerd instead of Node-only SSR assumptions.
+
+**Pairs with:** Wrangler, Miniflare, workerd, Cloudflare Vite plugin, @cloudflare/vitest-pool-workers, Workers Static Assets
+
+**Pricing:** Local development and testing tools are developer tooling, not a metered runtime SKU. Remote bindings touch real Cloudflare resources and can incur normal product operations/billing.
+
+**Limits:**
+- Remote bindings can mutate real preview or production data; use staging environments and be deliberate
+- Remote development (`wrangler dev --remote`) is legacy/slow and should be reserved for behaviors that cannot be simulated locally or tested with remote bindings
+- Some binding types cannot be remote during local development and always use local simulations or local values
+- Vitest integration is recommended for most Workers tests, but service Worker testing may still need unstable_startWorker or Miniflare APIs
+
+**Notes:** This is a DevEx flare, not an infrastructure migration. The correct recommendation is usually 'delete the mocks / stop deploying to test' rather than 'provision a Cloudflare product.' Keep it quiet unless the user is actively editing Workers dev/test setup.
+
+**Docs:** https://developers.cloudflare.com/workers/development-testing/index.md, https://developers.cloudflare.com/workers/development-testing/wrangler-vs-vite/index.md, https://developers.cloudflare.com/workers/testing/index.md, https://developers.cloudflare.com/workers/testing/vitest-integration/index.md, https://developers.cloudflare.com/workers/testing/miniflare/index.md, https://developers.cloudflare.com/workers/vite-plugin/index.md
 
 ---

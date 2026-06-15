@@ -21,9 +21,10 @@ Same north star: the cheapest system to own is the one you never had to maintain
 1. **Honesty over evangelism.** Cloudflare is not always the answer. Every
    suggestion names its catch (lock-in, egress/data-gravity, limits, migration cost).
    A wrong recommendation costs trust, which is the whole asset.
-2. **Confidence is a first-class field.** `high` = verified against live docs at
-   point-of-use (this turn). `medium` = catalogued (grounded in docs at build time,
-   not re-verified). `speculative` = an idea. The lens never launders a guess as a fact.
+2. **Confidence is a first-class field.** `high` = live docs verified at point-of-use
+   and repo fit observed with no unresolved blocker. `medium` = catalogued/docs-only
+   verified or fit inferred. `speculative` = an idea. The lens never launders a guess
+   as a fact.
 3. **Verify before asserting specifics.** Limits, prices, binding names, and API
    shapes drift fast. The lens confirms them against the live `cloudflare-docs` MCP
    (or a product `llms.txt`) before stating them. The catalog is a map, not the
@@ -69,8 +70,8 @@ that the hook reads and `/flare` writes. Add more only if/when it earns its keep
 
 The lens draws on two layers — **the live docs are the spine**:
 
-- **Catalog (the brain):** 112 products fanned out by research agents, each grounded in
-  that product's live `llms.txt` at build time — 108/112 `high`, 4 `medium`. This is a
+- **Catalog (the brain):** 124 products fanned out by research agents, each grounded in
+  that product's live `llms.txt` at build time — 118/124 `high`, 6 other. This is a
   fast, *dated cache* of the docs; specifics are re-verified against the `cloudflare-docs`
   MCP at point-of-use, and the catalog only ever decides *what to consider*.
 - **Optional enrichment (`knowledge/videos/`):** a dated note from a doc page, blog, or
@@ -97,7 +98,7 @@ building this" hook), `detectionSignals` (concrete smells a scanner greps for),
 
 Canonical sources and the full procedure: `knowledge/FRESHNESS.md`.
 
-Catalog built 2026-06-15 — 112 products across 12 categories (108 `high`, 4 `medium`),
+Catalog built 2026-06-15 — 124 products across 12 categories (118 `high`, 6 other),
 from Cloudflare's `llms.txt` + live per-product docs (base research pass + a gap-fill
 pass for the Zero Trust/SASE sub-products and the Rules family). Optional enrichment
 example on disk: the Cloudflare Images deep-dive.
